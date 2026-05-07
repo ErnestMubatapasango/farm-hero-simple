@@ -18,6 +18,7 @@ const DOC_TYPES = [
   { key: "land_title", label: "Land Title / Ownership Proof" },
   { key: "receipts", label: "Purchase Receipts" },
   { key: "insurance", label: "Insurance Documents" },
+  { key: "other", label: "Other Documents" },
 ];
 
 export default function DocumentsStep({ userId, uploadedDocs, setFormData }) {

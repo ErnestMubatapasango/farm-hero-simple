@@ -14,11 +14,10 @@ const farmingMethods = [
   { value: "conservation", title: "Conservation Agriculture (Pfumvudza/Intwasa)", description: "Minimum soil disturbance, mulching, and crop rotation." },
   { value: "commercial", title: "Commercial Farming", description: "Large-scale, mechanized production. Focus on cash crops." },
   { value: "subsistence", title: "Subsistence Farming", description: "Small-scale, for personal consumption with minimal surplus." },
-  { value: "mixed", title: "Mixed Farming", description: "Crops and livestock combined for diversified income." },
+  // { value: "mixed", title: "Mixed Farming", description: "Crops and livestock combined for diversified income." },
   { value: "contract", title: "Contract Farming", description: "Production under agreement with a buyer/company." },
   { value: "organic", title: "Organic Farming", description: "No synthetic chemicals. Growing niche market with premium pricing." },
-  { value: "precision", title: "Precision Farming", description: "Uses GPS, sensors, and data analytics for optimized production." },
-  { value: "agroforestry", title: "Agroforestry", description: "Combining crops with trees for sustainability and soil improvement." },
+
 ];
 
 const currentYear = new Date().getFullYear();

@@ -38,11 +38,6 @@ const farmerNav = [
   { title: "Credit Score", url: "/credit-score", icon: Gauge },
 ];
 
-const adminNav = [
-  { title: "Admin Panel", url: "/admin", icon: ShieldCheck },
-  { title: "Users & Roles", url: "/admin/users", icon: Users },
-  { title: "Manage Roles", url: "/admin/roles", icon: KeyRound },
-];
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -105,33 +100,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {profile?.role === "admin" && (
-          <>
-            <div className="my-3 mx-3 h-px bg-border" />
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {adminNav.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild>
-                        <NavLink
-                          to={item.url}
-                          end={item.url === "/admin"}
-                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                        >
-                          <item.icon className="h-4.5 w-4.5 shrink-0" />
-                          {!collapsed && <span>{item.title}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
-        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border p-3 space-y-2">

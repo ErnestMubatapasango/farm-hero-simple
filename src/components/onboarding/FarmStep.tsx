@@ -1,6 +1,8 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MapPin } from "lucide-react";
+import { zimbabweProvinces } from "./utils";
+import { cn } from "@/lib/utils";
 
 export default function FarmStep({ farmInfo, setFormData, errors = {} }: any) {
   function handleChange(e) {
@@ -28,12 +30,21 @@ export default function FarmStep({ farmInfo, setFormData, errors = {} }: any) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="region">Region</Label>
-          <select id="region" name="region" value={farmInfo.region} onChange={handleChange} className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm ${errCls("farm.region")}`}>
-            <option value="">Select region...</option>
-            <option value="ashanti">Ashanti</option>
-            <option value="eastern">Eastern</option>
-            <option value="western">Western</option>
-            <option value="central">Central</option>
+          <select
+            id="region"
+            name="region"
+            value={farmInfo.region}
+            onChange={handleChange}
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+              errCls("farm.region")
+            )}
+          >
+            {zimbabweProvinces.map((p) => (
+              <option key={p.province} value={p.province}>
+                {p.province} {p.capital}
+              </option>
+            ))}
           </select>
         </div>
         <div className="space-y-1.5">
