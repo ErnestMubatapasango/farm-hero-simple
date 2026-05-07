@@ -29,7 +29,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const farmerNav = [
+const mainNav = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Onboarding", url: "/onboarding", icon: ChevronRight },
   { title: "My Profile", url: "/profile", icon: UserCircle },
@@ -38,31 +38,37 @@ const farmerNav = [
   { title: "Credit Score", url: "/credit-score", icon: Gauge },
 ];
 
+const adminNav = [
+  { title: "Admin", url: "/admin", icon: ShieldCheck },
+  { title: "Users", url: "/admin/users", icon: Users },
+  { title: "Roles", url: "/admin/roles", icon: KeyRound },
+];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { session, roles, hasAnyRole } = useAuth();
   const userId = session?.user?.id;
-  const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null; role: string } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
+
+  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
 
   useEffect(() => {
     if (!userId) return;
     supabase
       .from("profiles")
-      .select("full_name, avatar_url, role")
+      .select("full_name, avatar_url")
       .eq("user_id", userId)
       .maybeSingle()
-      .then(({ data }) => setProfile(data as any));
+      .then(({ data }) => setProfile(data));
   }, [userId]);
 
-  const displayName = profile?.full_name || session?.user?.email || "Farmer";
+  const displayName = profile?.full_name || session?.user?.email || "User";
   const initials = profile?.full_name
     ? profile.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-    : (session?.user?.email?.[0] || "F").toUpperCase();
-  const roleLabel = profile?.role === "admin" ? "Admin" : "Farmer";
+    : (session?.user?.email?.[0] || "U").toUpperCase();
+  const roleLabel = roles.length > 0 ? roles[0].replace("_", " ") : "User";
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -82,7 +88,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {farmerNav.map((item) => (
+              {mainNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -100,20 +106,46 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              {!collapsed && (
+                <p className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Administration</p>
+              )}
+              <SidebarMenu>
+                {adminNav.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      >
+                        <item.icon className="h-4.5 w-4.5 shrink-0" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border p-3 space-y-2">
         <div className="flex items-center gap-3 rounded-lg px-3 py-2">
           <Avatar className="h-8 w-8">
             <AvatarImage src={profile?.avatar_url || undefined} alt={displayName} />
-            <AvatarFallback className="bg-kyf-sand text-sm font-medium text-kyf-earth">
+            <AvatarFallback className="bg-muted text-sm font-medium">
               {initials}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
-              <p className="text-xs text-muted-foreground">{roleLabel}</p>
+              <p className="text-xs text-muted-foreground capitalize">{roleLabel}</p>
             </div>
           )}
         </div>
