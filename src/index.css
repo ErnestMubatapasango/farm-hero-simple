@@ -1,0 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@layer base {
+  :root {
+    --background: 40 20% 97%;
+    --foreground: 160 10% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 160 10% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 10% 12%;
+
+    --primary: 152 35% 28%;
+    --primary-foreground: 40 20% 97%;
+
+    --secondary: 38 30% 92%;
+    --secondary-foreground: 160 10% 12%;
+
+    --muted: 40 15% 94%;
+    --muted-foreground: 160 6% 45%;
+
+    --accent: 32 60% 52%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 65% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 12% 89%;
+    --input: 40 12% 89%;
+    --ring: 152 35% 28%;
+
+    --radius: 0.625rem;
+
+    /* KYF custom tokens */
+    --kyf-sage: 152 35% 28%;
+    --kyf-sage-light: 152 25% 94%;
+    --kyf-sand: 38 30% 92%;
+    --kyf-amber: 32 60% 52%;
+    --kyf-earth: 25 20% 35%;
+    --kyf-success: 152 50% 40%;
+    --kyf-warning: 38 80% 55%;
+    --kyf-info: 210 60% 50%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 160 10% 12%;
+    --sidebar-primary: 152 35% 28%;
+    --sidebar-primary-foreground: 40 20% 97%;
+    --sidebar-accent: 152 25% 94%;
+    --sidebar-accent-foreground: 152 35% 28%;
+    --sidebar-border: 40 12% 89%;
+    --sidebar-ring: 152 35% 28%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+    @apply tracking-tight;
+  }
+
+  p {
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+  }
+}
+
+@layer utilities {
+  .kyf-card {
+    @apply bg-card rounded-xl border shadow-sm transition-shadow duration-200 hover:shadow-md;
+  }
+
+  .kyf-card-flat {
+    @apply bg-card rounded-xl border;
+  }
+
+  .kyf-status-pending {
+    @apply bg-amber-50 text-amber-700 border-amber-200;
+  }
+
+  .kyf-status-verified {
+    @apply bg-emerald-50 text-emerald-700 border-emerald-200;
+  }
+
+  .kyf-status-rejected {
+    @apply bg-red-50 text-red-700 border-red-200;
+  }
+
+  .kyf-fade-in {
+    animation: kyfFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .kyf-slide-up {
+    animation: kyfSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes kyfFadeIn {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes kyfSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}

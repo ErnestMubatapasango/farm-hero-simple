@@ -1,0 +1,165 @@
+import {
+  LayoutDashboard,
+  UserCircle,
+  FileText,
+  BarChart3,
+  ShieldCheck,
+  Sprout,
+  LogOut,
+  ChevronRight,
+  Gauge,
+  Users,
+  KeyRound,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate, useLocation } from "react-router-dom";
+import { NavLink } from "@/components/NavLink";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarFooter,
+  useSidebar,
+} from "@/components/ui/sidebar";
+
+const farmerNav = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Onboarding", url: "/onboarding", icon: ChevronRight },
+  { title: "My Profile", url: "/profile", icon: UserCircle },
+  { title: "Documents", url: "/documents", icon: FileText },
+  { title: "Analytics", url: "/analytics", icon: BarChart3 },
+  { title: "Credit Score", url: "/credit-score", icon: Gauge },
+];
+
+const adminNav = [
+  { title: "Admin Panel", url: "/admin", icon: ShieldCheck },
+  { title: "Users & Roles", url: "/admin/users", icon: Users },
+  { title: "Manage Roles", url: "/admin/roles", icon: KeyRound },
+];
+
+export function AppSidebar() {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+  const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null; role: string } | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from("profiles")
+      .select("full_name, avatar_url, role")
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => setProfile(data as any));
+  }, [userId]);
+
+  const displayName = profile?.full_name || session?.user?.email || "Farmer";
+  const initials = profile?.full_name
+    ? profile.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : (session?.user?.email?.[0] || "F").toUpperCase();
+  const roleLabel = profile?.role === "admin" ? "Admin" : "Farmer";
+
+  return (
+    <Sidebar collapsible="icon" className="border-r border-border">
+      <div className="flex items-center gap-3 px-4 py-5 border-b border-border">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+          <Sprout className="h-5 w-5 text-primary-foreground" />
+        </div>
+        {!collapsed && (
+          <div className="kyf-fade-in">
+            <p className="text-sm font-semibold text-foreground">KYF Platform</p>
+            <p className="text-xs text-muted-foreground">Know Your Farmer</p>
+          </div>
+        )}
+      </div>
+
+      <SidebarContent className="px-2 pt-4">
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {farmerNav.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.url}
+                      end={item.url === "/"}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    >
+                      <item.icon className="h-4.5 w-4.5 shrink-0" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {profile?.role === "admin" && (
+          <>
+            <div className="my-3 mx-3 h-px bg-border" />
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {adminNav.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.url}
+                          end={item.url === "/admin"}
+                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        >
+                          <item.icon className="h-4.5 w-4.5 shrink-0" />
+                          {!collapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+      </SidebarContent>
+
+      <SidebarFooter className="border-t border-border p-3 space-y-2">
+        <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={profile?.avatar_url || undefined} alt={displayName} />
+            <AvatarFallback className="bg-kyf-sand text-sm font-medium text-kyf-earth">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+              <p className="text-xs text-muted-foreground">{roleLabel}</p>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={async () => {
+            await supabase.auth.signOut();
+            navigate("/login");
+          }}
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive w-full"
+        >
+          <LogOut className="h-4.5 w-4.5 shrink-0" />
+          {!collapsed && <span>Logout</span>}
+        </button>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
