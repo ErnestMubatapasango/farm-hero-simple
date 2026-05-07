@@ -14,6 +14,154 @@ export type Database = {
   }
   public: {
     Tables: {
+      farmers: {
+        Row: {
+          annual_income: number | null
+          bank_name: string | null
+          county: string | null
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          enrolled_by: string
+          farm_name: string | null
+          farm_size_acres: number | null
+          farming_type: string | null
+          first_name: string
+          gender: string | null
+          has_bank_account: boolean | null
+          id: string
+          last_name: string
+          mobile_money_provider: string | null
+          national_id: string | null
+          notes: string | null
+          organization_id: string
+          phone: string | null
+          primary_crops: string[] | null
+          primary_livestock: string[] | null
+          status: string
+          sub_county: string | null
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+          village: string | null
+          ward: string | null
+        }
+        Insert: {
+          annual_income?: number | null
+          bank_name?: string | null
+          county?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          enrolled_by: string
+          farm_name?: string | null
+          farm_size_acres?: number | null
+          farming_type?: string | null
+          first_name: string
+          gender?: string | null
+          has_bank_account?: boolean | null
+          id?: string
+          last_name: string
+          mobile_money_provider?: string | null
+          national_id?: string | null
+          notes?: string | null
+          organization_id: string
+          phone?: string | null
+          primary_crops?: string[] | null
+          primary_livestock?: string[] | null
+          status?: string
+          sub_county?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          village?: string | null
+          ward?: string | null
+        }
+        Update: {
+          annual_income?: number | null
+          bank_name?: string | null
+          county?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          enrolled_by?: string
+          farm_name?: string | null
+          farm_size_acres?: number | null
+          farming_type?: string | null
+          first_name?: string
+          gender?: string | null
+          has_bank_account?: boolean | null
+          id?: string
+          last_name?: string
+          mobile_money_provider?: string | null
+          national_id?: string | null
+          notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          primary_crops?: string[] | null
+          primary_livestock?: string[] | null
+          status?: string
+          sub_county?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          village?: string | null
+          ward?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          id: string
+          invited_by: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          invited_by: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status?: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string | null
