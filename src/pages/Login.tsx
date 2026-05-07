@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Sprout } from "lucide-react";
 
-type AuthMode = "signin" | "create-org";
+type AuthMode = "signin" | "create-org" | "accept-invite";
 
 export default function Login() {
   const { session } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<AuthMode>("signin");
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("invite");
+
+  const [mode, setMode] = useState<AuthMode>(inviteToken ? "accept-invite" : "signin");
   const [orgName, setOrgName] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -18,6 +21,27 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [inviteInfo, setInviteInfo] = useState<{ email: string; role: string; organization_id: string } | null>(null);
+
+  // Load invite info
+  useEffect(() => {
+    if (!inviteToken) return;
+    supabase
+      .from("invitations")
+      .select("email, role, organization_id")
+      .eq("token", inviteToken)
+      .eq("status", "pending")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setInviteInfo(data);
+          setEmail(data.email);
+        } else {
+          setError("This invitation is invalid or has already been used.");
+          setMode("signin");
+        }
+      });
+  }, [inviteToken]);
 
   if (session) return <Navigate to="/" replace />;
 
@@ -38,7 +62,6 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // 1. Sign up user
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -56,7 +79,6 @@ export default function Login() {
         return;
       }
 
-      // 2. Create organization
       const slug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const { data: org, error: orgError } = await supabase
         .from("organizations")
@@ -65,13 +87,11 @@ export default function Login() {
         .single();
       if (orgError) throw orgError;
 
-      // 3. Update profile with org
       await supabase
         .from("profiles")
         .update({ organization_id: org.id, full_name: fullName })
         .eq("user_id", userId);
 
-      // 4. Assign super_admin role
       await supabase
         .from("user_roles")
         .insert({ user_id: userId, organization_id: org.id, role: "super_admin" });
@@ -80,8 +100,66 @@ export default function Login() {
     } catch (err: any) {
       setError(err.message);
     }
-
     setLoading(false);
+  };
+
+  const handleAcceptInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteInfo || !inviteToken) return;
+    setError("");
+    setMessage("");
+    setLoading(true);
+
+    try {
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: inviteInfo.email,
+        password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: { full_name: fullName },
+        },
+      });
+      if (signUpError) throw signUpError;
+
+      const userId = authData.user?.id;
+      if (!userId) {
+        setMessage("Check your email for a confirmation link, then sign in.");
+        setLoading(false);
+        return;
+      }
+
+      // Update profile with org
+      await supabase
+        .from("profiles")
+        .update({ organization_id: inviteInfo.organization_id, full_name: fullName })
+        .eq("user_id", userId);
+
+      // Assign role
+      await supabase
+        .from("user_roles")
+        .insert({
+          user_id: userId,
+          organization_id: inviteInfo.organization_id,
+          role: inviteInfo.role as any,
+        });
+
+      // Mark invitation as accepted
+      await supabase
+        .from("invitations")
+        .update({ status: "accepted", accepted_at: new Date().toISOString() })
+        .eq("token", inviteToken);
+
+      setMessage("Account created! Check your email for a confirmation link, then sign in.");
+    } catch (err: any) {
+      setError(err.message);
+    }
+    setLoading(false);
+  };
+
+  const getSubmitHandler = () => {
+    if (mode === "accept-invite") return handleAcceptInvite;
+    if (mode === "create-org") return handleCreateOrg;
+    return handleSignIn;
   };
 
   return (
@@ -93,29 +171,45 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">KYF Platform</h1>
           <p className="text-sm text-muted-foreground">
-            {mode === "create-org" ? "Create your organization" : "Sign in to continue"}
+            {mode === "create-org"
+              ? "Create your organization"
+              : mode === "accept-invite"
+                ? "Accept your invitation"
+                : "Sign in to continue"}
           </p>
         </div>
 
-        {/* Mode tabs */}
-        <div className="flex rounded-lg bg-muted p-1">
-          <button
-            type="button"
-            onClick={() => { setMode("signin"); setError(""); setMessage(""); }}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode("create-org"); setError(""); setMessage(""); }}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "create-org" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
-          >
-            Create Organization
-          </button>
-        </div>
+        {/* Mode tabs (hidden during invite accept) */}
+        {!inviteToken && (
+          <div className="flex rounded-lg bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => { setMode("signin"); setError(""); setMessage(""); }}
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode("create-org"); setError(""); setMessage(""); }}
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "create-org" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+            >
+              Create Organization
+            </button>
+          </div>
+        )}
 
-        <form onSubmit={mode === "signin" ? handleSignIn : handleCreateOrg} className="space-y-4">
+        {/* Invite info badge */}
+        {mode === "accept-invite" && inviteInfo && (
+          <div className="rounded-lg bg-primary/10 px-4 py-3 text-sm">
+            <p className="font-medium text-foreground">
+              You've been invited as <span className="capitalize">{inviteInfo.role.replace("_", " ")}</span>
+            </p>
+            <p className="text-muted-foreground text-xs mt-0.5">Create your account to get started.</p>
+          </div>
+        )}
+
+        <form onSubmit={getSubmitHandler()} className="space-y-4">
           {mode === "create-org" && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Organization Name</label>
@@ -129,7 +223,7 @@ export default function Login() {
             </div>
           )}
 
-          {mode === "create-org" && (
+          {(mode === "create-org" || mode === "accept-invite") && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Full Name</label>
               <Input
@@ -150,6 +244,7 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
+              disabled={mode === "accept-invite"}
             />
           </div>
 
@@ -173,9 +268,24 @@ export default function Login() {
             disabled={loading}
             className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:opacity-90 active:scale-[0.97] disabled:opacity-50"
           >
-            {loading ? "Please wait..." : mode === "create-org" ? "Create Organization" : "Sign In"}
+            {loading
+              ? "Please wait..."
+              : mode === "create-org"
+                ? "Create Organization"
+                : mode === "accept-invite"
+                  ? "Create Account"
+                  : "Sign In"}
           </button>
         </form>
+
+        {mode === "accept-invite" && (
+          <p className="text-center text-xs text-muted-foreground">
+            Already have an account?{" "}
+            <button onClick={() => { setMode("signin"); setError(""); setMessage(""); }} className="text-primary hover:underline">
+              Sign in instead
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

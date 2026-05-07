@@ -10,9 +10,11 @@ import {
   Gauge,
   Users,
   KeyRound,
+  Send,
+  UserPlus,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,7 +33,7 @@ import {
 
 const mainNav = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Onboarding", url: "/onboarding", icon: ChevronRight },
+  { title: "Onboarding", url: "/onboarding", icon: UserPlus },
   { title: "My Profile", url: "/profile", icon: UserCircle },
   { title: "Documents", url: "/documents", icon: FileText },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
@@ -40,8 +42,10 @@ const mainNav = [
 
 const adminNav = [
   { title: "Admin", url: "/admin", icon: ShieldCheck },
+  { title: "Farmers", url: "/admin/farmers", icon: Sprout },
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Roles", url: "/admin/roles", icon: KeyRound },
+  { title: "Invitations", url: "/admin/invitations", icon: Send },
 ];
 
 export function AppSidebar() {

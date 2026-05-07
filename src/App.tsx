@@ -16,8 +16,10 @@ import Analytics from "./pages/Analytics";
 import CreditScore from "./pages/CreditScore";
 import Admin from "./pages/Admin";
 import AdminFarmerDetail from "./pages/AdminFarmerDetail";
+import AdminFarmers from "./pages/AdminFarmers";
 import AdminUsers from "./pages/AdminUsers";
 import AdminRoles from "./pages/AdminRoles";
+import AdminInvitations from "./pages/AdminInvitations";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -45,7 +47,9 @@ const App = () => (
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/admin/users" element={<AdminUsers />} />
                   <Route path="/admin/roles" element={<AdminRoles />} />
+                  <Route path="/admin/farmers" element={<AdminFarmers />} />
                   <Route path="/admin/farmer/:userId" element={<AdminFarmerDetail />} />
+                  <Route path="/admin/invitations" element={<AdminInvitations />} />
                 </Route>
               </Route>
             </Route>
