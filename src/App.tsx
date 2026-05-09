@@ -21,6 +21,8 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminRoles from "./pages/AdminRoles";
 import AdminInvitations from "./pages/AdminInvitations";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
