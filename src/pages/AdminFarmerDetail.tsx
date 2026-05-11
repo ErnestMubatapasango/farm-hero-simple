@@ -26,8 +26,6 @@ interface FarmerDetail {
   national_id: string | null;
   region: string | null;
   sub_county: string | null;
-  sub_region: string | null;
-  sub_county: string | null;
   ward: string | null;
   village: string | null;
   farm_name: string | null;
