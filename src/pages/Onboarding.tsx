@@ -54,8 +54,7 @@ interface FormState {
   farm_name: string;
   farm_size_hectares: string;
   // crops/livestock
-  farming_type: string;
-  primary_livestock: string;
+  primary_livestock: string[];
   cropInfo: CropInfo;
   yieldHistory: Record<string, YieldEntry>;
   // financial
