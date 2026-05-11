@@ -143,10 +143,12 @@ export default function Onboarding() {
 
     setSubmitting(true);
 
-    const livestock = form.primary_livestock
-      .split(",")
-      .map((l) => l.trim())
-      .filter(Boolean);
+    const livestock = form.primary_livestock;
+
+    // Derive farming type from selections
+    const hasCrops = selectedCrops.length > 0;
+    const hasLivestock = livestock.length > 0;
+    const farmingType = hasCrops && hasLivestock ? "mixed" : hasLivestock ? "livestock" : "crop";
 
     // Step 1: insert farmer
     const { data: farmer, error: farmerError } = await supabase
@@ -167,7 +169,7 @@ export default function Onboarding() {
         village: form.village || null,
         farm_name: form.farm_name || null,
         farm_size_hectares: form.farm_size_hectares ? parseFloat(form.farm_size_hectares) : null,
-        farming_type: form.farming_type,
+        farming_type: farmingType,
         primary_crops: selectedCrops,
         primary_livestock: livestock,
         annual_income: form.annual_income ? parseFloat(form.annual_income) : null,
