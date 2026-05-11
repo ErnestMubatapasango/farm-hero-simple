@@ -18,13 +18,12 @@ export type Database = {
         Row: {
           annual_income: number | null
           bank_name: string | null
-          county: string | null
           created_at: string
           date_of_birth: string | null
           email: string | null
           enrolled_by: string
           farm_name: string | null
-          farm_size_acres: number | null
+          farm_size_hectares: number | null
           farming_type: string | null
           first_name: string
           gender: string | null
@@ -38,6 +37,7 @@ export type Database = {
           phone: string | null
           primary_crops: string[] | null
           primary_livestock: string[] | null
+          region: string | null
           status: string
           sub_county: string | null
           updated_at: string
@@ -49,13 +49,12 @@ export type Database = {
         Insert: {
           annual_income?: number | null
           bank_name?: string | null
-          county?: string | null
           created_at?: string
           date_of_birth?: string | null
           email?: string | null
           enrolled_by: string
           farm_name?: string | null
-          farm_size_acres?: number | null
+          farm_size_hectares?: number | null
           farming_type?: string | null
           first_name: string
           gender?: string | null
@@ -69,6 +68,7 @@ export type Database = {
           phone?: string | null
           primary_crops?: string[] | null
           primary_livestock?: string[] | null
+          region?: string | null
           status?: string
           sub_county?: string | null
           updated_at?: string
@@ -80,13 +80,12 @@ export type Database = {
         Update: {
           annual_income?: number | null
           bank_name?: string | null
-          county?: string | null
           created_at?: string
           date_of_birth?: string | null
           email?: string | null
           enrolled_by?: string
           farm_name?: string | null
-          farm_size_acres?: number | null
+          farm_size_hectares?: number | null
           farming_type?: string | null
           first_name?: string
           gender?: string | null
@@ -100,6 +99,7 @@ export type Database = {
           phone?: string | null
           primary_crops?: string[] | null
           primary_livestock?: string[] | null
+          region?: string | null
           status?: string
           sub_county?: string | null
           updated_at?: string
