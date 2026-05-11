@@ -374,29 +374,6 @@ export default function Onboarding() {
 
         {step === "crops" && (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Farming Type</Label>
-                <Select value={form.farming_type} onValueChange={(v) => update("farming_type", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="crop">Crop</SelectItem>
-                    <SelectItem value="livestock">Livestock</SelectItem>
-                    <SelectItem value="mixed">Mixed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Primary Livestock</Label>
-                <Input
-                  value={form.primary_livestock}
-                  onChange={(e) => update("primary_livestock", e.target.value)}
-                  placeholder="Cattle, Goats, Poultry"
-                />
-                <p className="text-[10px] text-muted-foreground">Comma-separated</p>
-              </div>
-            </div>
-
             <CropsStep
               cropInfo={form.cropInfo}
               yieldHistory={form.yieldHistory}
@@ -404,6 +381,37 @@ export default function Onboarding() {
                 setForm((prev) => updater(prev))
               }
             />
+
+            <div className="space-y-2 pt-2">
+              <Label>Livestock (optional)</Label>
+              <p className="text-xs text-muted-foreground">Select all that apply.</p>
+              <div className="flex flex-wrap gap-2">
+                {LIVESTOCK_OPTIONS.map((opt) => {
+                  const selected = form.primary_livestock.includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          primary_livestock: selected
+                            ? prev.primary_livestock.filter((l) => l !== opt)
+                            : [...prev.primary_livestock, opt],
+                        }))
+                      }
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        selected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </>
         )}
 
