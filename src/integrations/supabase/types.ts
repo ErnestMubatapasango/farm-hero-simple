@@ -14,6 +14,91 @@ export type Database = {
   }
   public: {
     Tables: {
+      crop_yield_history: {
+        Row: {
+          created_at: string
+          crop: string
+          farmer_id: string
+          id: string
+          organization_id: string
+          revenue_usd: number | null
+          updated_at: string
+          year: number
+          yield_kg: number | null
+        }
+        Insert: {
+          created_at?: string
+          crop: string
+          farmer_id: string
+          id?: string
+          organization_id: string
+          revenue_usd?: number | null
+          updated_at?: string
+          year: number
+          yield_kg?: number | null
+        }
+        Update: {
+          created_at?: string
+          crop?: string
+          farmer_id?: string
+          id?: string
+          organization_id?: string
+          revenue_usd?: number | null
+          updated_at?: string
+          year?: number
+          yield_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_yield_history_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      farmer_crops: {
+        Row: {
+          created_at: string
+          crop: string
+          farmer_id: string
+          farming_method: string | null
+          id: string
+          organization_id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          crop: string
+          farmer_id: string
+          farming_method?: string | null
+          id?: string
+          organization_id: string
+          position: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          crop?: string
+          farmer_id?: string
+          farming_method?: string | null
+          id?: string
+          organization_id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmer_crops_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farmers: {
         Row: {
           annual_income: number | null
