@@ -28,7 +28,7 @@ export default function AdminFarmers() {
       setLoading(true);
       let query = supabase
         .from("farmers")
-        .select("id, first_name, last_name, phone, county, farming_type, status, created_at")
+        .select("id, first_name, last_name, phone, region, farming_type, status, created_at")
         .order("created_at", { ascending: false });
       if (!hasRole("developer")) {
         query = query.eq("organization_id", organizationId);
@@ -45,7 +45,7 @@ export default function AdminFarmers() {
       !search ||
       `${f.first_name} ${f.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
       f.phone?.includes(search) ||
-      f.county?.toLowerCase().includes(search.toLowerCase());
+      f.region?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || f.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -87,7 +87,7 @@ export default function AdminFarmers() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone, county..."
+            placeholder="Search by name, phone, region..."
             className="pl-9"
           />
         </div>
@@ -124,7 +124,7 @@ export default function AdminFarmers() {
                 <div>
                   <p className="text-sm font-medium text-foreground">{f.first_name} {f.last_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {f.county || "No location"} · {f.farming_type || "N/A"}
+                    {f.region || "No location"} · {f.farming_type || "N/A"}
                     {f.phone && ` · ${f.phone}`}
                   </p>
                 </div>

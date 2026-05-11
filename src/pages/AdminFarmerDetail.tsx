@@ -24,12 +24,14 @@ interface FarmerDetail {
   date_of_birth: string | null;
   gender: string | null;
   national_id: string | null;
-  county: string | null;
+  region: string | null;
+  sub_county: string | null;
+  sub_region: string | null;
   sub_county: string | null;
   ward: string | null;
   village: string | null;
   farm_name: string | null;
-  farm_size_acres: number | null;
+  farm_size_hectares: number | null;
   farming_type: string | null;
   primary_crops: string[] | null;
   primary_livestock: string[] | null;
@@ -190,7 +192,7 @@ export default function AdminFarmerDetail() {
           Location
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <InfoRow label="County" value={farmer.county} />
+          <InfoRow label="Region" value={farmer.region} />
           <InfoRow label="Sub-County" value={farmer.sub_county} />
           <InfoRow label="Ward" value={farmer.ward} />
           <InfoRow label="Village" value={farmer.village} />
@@ -205,7 +207,7 @@ export default function AdminFarmerDetail() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <InfoRow label="Farm Name" value={farmer.farm_name} />
-          <InfoRow label="Size (acres)" value={farmer.farm_size_acres?.toString()} />
+          <InfoRow label="Size (hectares)" value={farmer.farm_size_hectares?.toString()} />
           <InfoRow label="Type" value={farmer.farming_type} />
           <InfoRow label="Primary Crops" value={farmer.primary_crops?.join(", ")} />
           <InfoRow label="Primary Livestock" value={farmer.primary_livestock?.join(", ")} />
