@@ -92,6 +92,8 @@ const emptyForm: FormState = {
 const currentYear = new Date().getFullYear();
 const previousYear = currentYear - 1;
 
+const LIVESTOCK_OPTIONS = ["Cattle", "Goats", "Sheep", "Poultry", "Pigs", "Donkeys", "Rabbits", "Fish"];
+
 export default function Onboarding() {
   const { session, organizationId, hasAnyRole } = useAuth();
   const { toast } = useToast();
