@@ -10,7 +10,7 @@ interface Farmer {
   first_name: string;
   last_name: string;
   phone: string | null;
-  county: string | null;
+  region: string | null;
   farming_type: string | null;
   status: string;
   created_at: string;
