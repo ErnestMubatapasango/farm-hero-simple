@@ -54,8 +54,7 @@ interface FormState {
   farm_name: string;
   farm_size_hectares: string;
   // crops/livestock
-  farming_type: string;
-  primary_livestock: string;
+  primary_livestock: string[];
   cropInfo: CropInfo;
   yieldHistory: Record<string, YieldEntry>;
   // financial
@@ -80,8 +79,7 @@ const emptyForm: FormState = {
   village: "",
   farm_name: "",
   farm_size_hectares: "",
-  farming_type: "mixed",
-  primary_livestock: "",
+  primary_livestock: [],
   cropInfo: { primaryCrop: "", secondaryCrop: "", farmingMethods: {} },
   yieldHistory: {},
   annual_income: "",
@@ -93,6 +91,8 @@ const emptyForm: FormState = {
 
 const currentYear = new Date().getFullYear();
 const previousYear = currentYear - 1;
+
+const LIVESTOCK_OPTIONS = ["Cattle", "Goats", "Sheep", "Poultry", "Pigs", "Donkeys", "Rabbits", "Fish"];
 
 export default function Onboarding() {
   const { session, organizationId, hasAnyRole } = useAuth();
@@ -145,10 +145,12 @@ export default function Onboarding() {
 
     setSubmitting(true);
 
-    const livestock = form.primary_livestock
-      .split(",")
-      .map((l) => l.trim())
-      .filter(Boolean);
+    const livestock = form.primary_livestock;
+
+    // Derive farming type from selections
+    const hasCrops = selectedCrops.length > 0;
+    const hasLivestock = livestock.length > 0;
+    const farmingType = hasCrops && hasLivestock ? "mixed" : hasLivestock ? "livestock" : "crop";
 
     // Step 1: insert farmer
     const { data: farmer, error: farmerError } = await supabase
@@ -169,7 +171,7 @@ export default function Onboarding() {
         village: form.village || null,
         farm_name: form.farm_name || null,
         farm_size_hectares: form.farm_size_hectares ? parseFloat(form.farm_size_hectares) : null,
-        farming_type: form.farming_type,
+        farming_type: farmingType,
         primary_crops: selectedCrops,
         primary_livestock: livestock,
         annual_income: form.annual_income ? parseFloat(form.annual_income) : null,
@@ -374,29 +376,6 @@ export default function Onboarding() {
 
         {step === "crops" && (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Farming Type</Label>
-                <Select value={form.farming_type} onValueChange={(v) => update("farming_type", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="crop">Crop</SelectItem>
-                    <SelectItem value="livestock">Livestock</SelectItem>
-                    <SelectItem value="mixed">Mixed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Primary Livestock</Label>
-                <Input
-                  value={form.primary_livestock}
-                  onChange={(e) => update("primary_livestock", e.target.value)}
-                  placeholder="Cattle, Goats, Poultry"
-                />
-                <p className="text-[10px] text-muted-foreground">Comma-separated</p>
-              </div>
-            </div>
-
             <CropsStep
               cropInfo={form.cropInfo}
               yieldHistory={form.yieldHistory}
@@ -404,6 +383,37 @@ export default function Onboarding() {
                 setForm((prev) => updater(prev))
               }
             />
+
+            <div className="space-y-2 pt-2">
+              <Label>Livestock (optional)</Label>
+              <p className="text-xs text-muted-foreground">Select all that apply.</p>
+              <div className="flex flex-wrap gap-2">
+                {LIVESTOCK_OPTIONS.map((opt) => {
+                  const selected = form.primary_livestock.includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          primary_livestock: selected
+                            ? prev.primary_livestock.filter((l) => l !== opt)
+                            : [...prev.primary_livestock, opt],
+                        }))
+                      }
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        selected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </>
         )}
 
