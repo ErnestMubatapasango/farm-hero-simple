@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Sprout, User, MapPin, Tractor, Wallet, ChevronRight, ChevronLeft, Check, Loader2 } from "lucide-react";
 import { zimbabweProvinces } from "@/components/onboarding/utils";
-import { cn } from "@/lib/utils";
+import CropsStep from "@/components/onboarding/CropsStep";
 
 type Step = "personal" | "farm" | "crops" | "financial";
 
@@ -25,7 +26,19 @@ const STEPS: { key: Step; label: string; icon: React.ElementType }[] = [
   { key: "financial", label: "Financial", icon: Wallet },
 ];
 
-interface FarmerForm {
+interface CropInfo {
+  primaryCrop: string;
+  secondaryCrop: string;
+  farmingMethods: Record<string, string>;
+}
+
+interface YieldEntry {
+  yield: string;
+  revenue: string;
+}
+
+interface FormState {
+  // personal
   first_name: string;
   last_name: string;
   phone: string;
@@ -33,17 +46,19 @@ interface FarmerForm {
   date_of_birth: string;
   gender: string;
   national_id: string;
+  // farm
   region: string;
-  district: string;
-  latitude: string;
-  longitude: string;
+  sub_county: string;
   ward: string;
   village: string;
   farm_name: string;
   farm_size_hectares: string;
+  // crops/livestock
   farming_type: string;
-  primary_crops: string;
   primary_livestock: string;
+  cropInfo: CropInfo;
+  yieldHistory: Record<string, YieldEntry>;
+  // financial
   annual_income: string;
   has_bank_account: boolean;
   bank_name: string;
@@ -51,7 +66,7 @@ interface FarmerForm {
   notes: string;
 }
 
-const emptyForm: FarmerForm = {
+const emptyForm: FormState = {
   first_name: "",
   last_name: "",
   phone: "",
@@ -60,16 +75,15 @@ const emptyForm: FarmerForm = {
   gender: "",
   national_id: "",
   region: "",
-  district: "",
-  latitude: "",
-  longitude: "",
+  sub_county: "",
   ward: "",
   village: "",
   farm_name: "",
   farm_size_hectares: "",
   farming_type: "mixed",
-  primary_crops: "",
   primary_livestock: "",
+  cropInfo: { primaryCrop: "", secondaryCrop: "", farmingMethods: {} },
+  yieldHistory: {},
   annual_income: "",
   has_bank_account: false,
   bank_name: "",
@@ -77,28 +91,30 @@ const emptyForm: FarmerForm = {
   notes: "",
 };
 
+const currentYear = new Date().getFullYear();
+const previousYear = currentYear - 1;
+
 export default function Onboarding() {
   const { session, organizationId, hasAnyRole } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("personal");
-  const [form, setForm] = useState<FarmerForm>(emptyForm);
+  const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
 
   const canOnboard = hasAnyRole(["enumerator", "admin", "super_admin", "developer"]);
 
   if (!canOnboard) {
     return (
-      <div className="p-4 sm:p-6 md:p-8 max-w-3xl mx-auto">
-        <div className="kyf-card-flat p-8 text-center">
-          <Sprout className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+      <div className="p-8 max-w-md mx-auto">
+        <div className="kyf-card p-6 text-center">
           <p className="text-sm text-muted-foreground">You don't have permission to onboard farmers.</p>
         </div>
       </div>
     );
   }
 
-  const update = (field: keyof FarmerForm, value: string | boolean) =>
+  const update = (field: keyof FormState, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const stepIndex = STEPS.findIndex((s) => s.key === step);
@@ -112,54 +128,129 @@ export default function Onboarding() {
 
   const handleSubmit = async () => {
     if (!session?.user?.id || !organizationId) return;
+
+    // Validate crops
+    const selectedCrops = [form.cropInfo.primaryCrop, form.cropInfo.secondaryCrop].filter(Boolean);
+    for (const c of selectedCrops) {
+      if (!form.cropInfo.farmingMethods[c]) {
+        toast({
+          title: "Missing farming method",
+          description: `Please choose a farming method for ${c}.`,
+          variant: "destructive",
+        });
+        setStep("crops");
+        return;
+      }
+    }
+
     setSubmitting(true);
 
-    const crops = form.primary_crops
-      .split(",")
-      .map((c) => c.trim())
-      .filter(Boolean);
     const livestock = form.primary_livestock
       .split(",")
       .map((l) => l.trim())
       .filter(Boolean);
 
-    const { error } = await supabase.from("farmers").insert({
-      organization_id: organizationId,
-      enrolled_by: session.user.id,
-      first_name: form.first_name,
-      last_name: form.last_name,
-      phone: form.phone || null,
-      email: form.email || null,
-      date_of_birth: form.date_of_birth || null,
-      gender: form.gender || null,
-      national_id: form.national_id || null,
-      region: form.region || null,
-      district: form.district || null,
-      latitude: form.latitude ? parseFloat(form.latitude) : null,
-      longitude: form.longitude ? parseFloat(form.longitude) : null,
-      ward: form.ward || null,
-      village: form.village || null,
-      farm_name: form.farm_name || null,
-      farm_size_hectares: form.farm_size_hectares ? parseFloat(form.farm_size_hectares) : null,
-      farming_type: form.farming_type,
-      primary_crops: crops,
-      primary_livestock: livestock,
-      annual_income: form.annual_income ? parseFloat(form.annual_income) : null,
-      has_bank_account: form.has_bank_account,
-      bank_name: form.bank_name || null,
-      mobile_money_provider: form.mobile_money_provider || null,
-      notes: form.notes || null,
-    });
+    // Step 1: insert farmer
+    const { data: farmer, error: farmerError } = await supabase
+      .from("farmers")
+      .insert({
+        organization_id: organizationId,
+        enrolled_by: session.user.id,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        phone: form.phone || null,
+        email: form.email || null,
+        date_of_birth: form.date_of_birth || null,
+        gender: form.gender || null,
+        national_id: form.national_id || null,
+        region: form.region || null,
+        sub_county: form.sub_county || null,
+        ward: form.ward || null,
+        village: form.village || null,
+        farm_name: form.farm_name || null,
+        farm_size_hectares: form.farm_size_hectares ? parseFloat(form.farm_size_hectares) : null,
+        farming_type: form.farming_type,
+        primary_crops: selectedCrops,
+        primary_livestock: livestock,
+        annual_income: form.annual_income ? parseFloat(form.annual_income) : null,
+        has_bank_account: form.has_bank_account,
+        bank_name: form.bank_name || null,
+        mobile_money_provider: form.mobile_money_provider || null,
+        notes: form.notes || null,
+      })
+      .select("id")
+      .single();
 
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Farmer registered", description: `${form.first_name} ${form.last_name} has been onboarded successfully.` });
-      setForm(emptyForm);
-      setStep("personal");
-      navigate("/");
+    if (farmerError || !farmer) {
+      toast({ title: "Error", description: farmerError?.message ?? "Could not create farmer", variant: "destructive" });
+      setSubmitting(false);
+      return;
     }
+
+    // Step 2: insert farmer_crops
+    if (selectedCrops.length > 0) {
+      const cropsRows = selectedCrops.map((crop, idx) => ({
+        farmer_id: farmer.id,
+        organization_id: organizationId,
+        crop,
+        position: idx + 1,
+        farming_method: form.cropInfo.farmingMethods[crop] || null,
+      }));
+
+      const { error: cropsError } = await supabase.from("farmer_crops").insert(cropsRows);
+      if (cropsError) {
+        await supabase.from("farmers").delete().eq("id", farmer.id);
+        toast({ title: "Error saving crops", description: cropsError.message, variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    // Step 3: insert crop_yield_history (skip empty rows)
+    const yieldRows: Array<{
+      farmer_id: string;
+      organization_id: string;
+      crop: string;
+      year: number;
+      yield_kg: number | null;
+      revenue_usd: number | null;
+    }> = [];
+    for (const crop of selectedCrops) {
+      for (const year of [previousYear, currentYear]) {
+        const entry = form.yieldHistory[`${crop}_${year}`];
+        if (!entry) continue;
+        const y = entry.yield ? parseFloat(entry.yield) : null;
+        const r = entry.revenue ? parseFloat(entry.revenue) : null;
+        if (y === null && r === null) continue;
+        yieldRows.push({
+          farmer_id: farmer.id,
+          organization_id: organizationId,
+          crop,
+          year,
+          yield_kg: y,
+          revenue_usd: r,
+        });
+      }
+    }
+
+    if (yieldRows.length > 0) {
+      const { error: yieldError } = await supabase.from("crop_yield_history").insert(yieldRows);
+      if (yieldError) {
+        await supabase.from("farmers").delete().eq("id", farmer.id);
+        toast({ title: "Error saving yield history", description: yieldError.message, variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    toast({
+      title: "Farmer registered",
+      description: `${form.first_name} ${form.last_name} has been onboarded successfully.`,
+    });
+    setForm(emptyForm);
+    setStep("personal");
     setSubmitting(false);
+    navigate("/");
   };
 
   return (
@@ -170,13 +261,15 @@ export default function Onboarding() {
       </div>
 
       {/* Step indicators */}
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex gap-2">
         {STEPS.map((s, i) => {
+          const Icon = s.icon;
           const isActive = s.key === step;
           const isDone = i < stepIndex;
           return (
             <button
               key={s.key}
+              type="button"
               onClick={() => setStep(s.key)}
               className={`flex items-center gap-2 flex-1 rounded-lg px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors ${
                 isActive
@@ -186,43 +279,43 @@ export default function Onboarding() {
                     : "bg-muted text-muted-foreground"
               }`}
             >
-              {isDone ? <Check className="h-3.5 w-3.5" /> : <s.icon className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">{s.label}</span>
+              {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+              {s.label}
             </button>
           );
         })}
       </div>
 
       {/* Form sections */}
-      <div className="kyf-card p-5 sm:p-6 space-y-4">
+      <div className="kyf-card p-5 sm:p-6 space-y-5">
         {step === "personal" && (
           <>
             <h2 className="text-lg font-semibold text-foreground">Personal Information</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">First Name <span className="text-destructive">*</span></label>
+                <Label>First Name *</Label>
                 <Input value={form.first_name} onChange={(e) => update("first_name", e.target.value)} placeholder="Enter first name..." required />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Last Name <span className="text-destructive">*</span></label>
-                <Input value={form.last_name} onChange={(e) => update("last_name", e.target.value)} placeholder="Enter last name... " required />
+                <Label>Last Name *</Label>
+                <Input value={form.last_name} onChange={(e) => update("last_name", e.target.value)} placeholder="Enter last name..." required />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Phone <span className="text-destructive">*</span></label>
-                <Input type="number" value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+263..." required />
+                <Label>Phone *</Label>
+                <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+263..." required />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Email</label>
-                <Input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="farmer@example.com" />
+                <Label>Email</Label>
+                <Input value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="farmer@example.com" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Date of Birth</label>
+                <Label>Date of Birth</Label>
                 <Input type="date" value={form.date_of_birth} onChange={(e) => update("date_of_birth", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Gender</label>
+                <Label>Gender</Label>
                 <Select value={form.gender} onValueChange={(v) => update("gender", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="male">Male</SelectItem>
                     <SelectItem value="female">Female</SelectItem>
@@ -231,7 +324,7 @@ export default function Onboarding() {
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <label className="text-sm font-medium text-foreground">National ID <span className="text-destructive">*</span></label>
+                <Label>National ID *</Label>
                 <Input value={form.national_id} onChange={(e) => update("national_id", e.target.value)} placeholder="Enter national ID number..." required />
               </div>
             </div>
@@ -239,80 +332,53 @@ export default function Onboarding() {
         )}
 
         {step === "farm" && (
-          // <>
-          //   <h2 className="text-lg font-semibold text-foreground">Location Details</h2>
-          //   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          //     <div className="space-y-1.5">
-          //       <label className="text-sm font-medium text-foreground">County</label>
-          //       <Input value={form.county} onChange={(e) => update("county", e.target.value)} placeholder="Enter county" />
-          //     </div>
-          //     <div className="space-y-1.5">
-          //       <label className="text-sm font-medium text-foreground">Sub-County</label>
-          //       <Input value={form.sub_county} onChange={(e) => update("sub_county", e.target.value)} placeholder="Enter sub-county" />
-          //     </div>
-          //     <div className="space-y-1.5">
-          //       <label className="text-sm font-medium text-foreground">Ward</label>
-          //       <Input value={form.ward} onChange={(e) => update("ward", e.target.value)} placeholder="Enter ward" />
-          //     </div>
-          //     <div className="space-y-1.5">
-          //       <label className="text-sm font-medium text-foreground">Village</label>
-          //       <Input value={form.village} onChange={(e) => update("village", e.target.value)} placeholder="Enter village" />
-          //     </div>
-          //   </div>
-          // </>
-
-          <div className="space-y-5">
+          <>
             <h2 className="text-lg font-semibold text-foreground">Farm Information</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="farmName">Farm Name</label>
-                <Input id="farmName" name="farmName" value={form.farm_name} onChange={(e) => update("farm_name", e.target.value)} placeholder="e.g. Golden Cocoa Estate" />
+                <Label>Farm Name</Label>
+                <Input value={form.farm_name} onChange={(e) => update("farm_name", e.target.value)} placeholder="e.g. Golden Cocoa Estate" />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="farmSizeHectares">Farm Size (hectares)</label>
-                <Input id="farmSizeHectares" name="farmSizeHectares" value={form.farm_size_hectares} onChange={(e) => update("farm_size_hectares", e.target.value)} type="number" placeholder="4.2" />
+                <Label>Farm Size (hectares)</Label>
+                <Input value={form.farm_size_hectares} onChange={(e) => update("farm_size_hectares", e.target.value)} type="number" placeholder="4.2" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Region</label>
+                <Label>Region (Province)</Label>
                 <Select value={form.region} onValueChange={(v) => update("region", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select region" /></SelectTrigger>
                   <SelectContent>
                     {zimbabweProvinces.map((p) => (
-                    <SelectItem key={p.province} value={p.province}>
-                      {p.province} {p.capital}
-                    </SelectItem>
-                  ))}
+                      <SelectItem key={p.province} value={p.province}>
+                        {p.province}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="district">District</label>
-                <Input id="district" name="district" value={form.district} onChange={(e) => update("district", e.target.value)} placeholder="Kumasi Metropolitan"/>
+                <Label>District / Sub-County</Label>
+                <Input value={form.sub_county} onChange={(e) => update("sub_county", e.target.value)} placeholder="District name" />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="latitude">Latitude</label>
-                <Input id="latitude" name="latitude" value={form.latitude} onChange={(e) => update("latitude", e.target.value)} type="number" placeholder="6.6885" />
+                <Label>Ward</Label>
+                <Input value={form.ward} onChange={(e) => update("ward", e.target.value)} placeholder="Ward" />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="longitude">Longitude</label>
-                <Input id="longitude" name="longitude" value={form.longitude} onChange={(e) => update("longitude", e.target.value)} type="number" placeholder="-1.6244" />
+                <Label>Village</Label>
+                <Input value={form.village} onChange={(e) => update("village", e.target.value)} placeholder="Village" />
               </div>
             </div>
-            <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4 inline mr-1.5" />
-              Map picker will be available in the next update. Enter coordinates manually for now.
-            </div>
-          </div>
-              )}
+          </>
+        )}
 
         {step === "crops" && (
           <>
-            <h2 className="text-lg font-semibold text-foreground">Crops & Livestock</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Farming Type</label>
+                <Label>Farming Type</Label>
                 <Select value={form.farming_type} onValueChange={(v) => update("farming_type", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select farming type" /></SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="crop">Crop</SelectItem>
                     <SelectItem value="livestock">Livestock</SelectItem>
@@ -321,16 +387,23 @@ export default function Onboarding() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Primary Crops</label>
-                <Input value={form.primary_crops} onChange={(e) => update("primary_crops", e.target.value)} placeholder="Maize, Beans, Tea" />
-                <p className="text-xs text-muted-foreground">Comma-separated</p>
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <label className="text-sm font-medium text-foreground">Primary Livestock</label>
-                <Input value={form.primary_livestock} onChange={(e) => update("primary_livestock", e.target.value)} placeholder="Cattle, Goats, Poultry" />
-                <p className="text-xs text-muted-foreground">Comma-separated</p>
+                <Label>Primary Livestock</Label>
+                <Input
+                  value={form.primary_livestock}
+                  onChange={(e) => update("primary_livestock", e.target.value)}
+                  placeholder="Cattle, Goats, Poultry"
+                />
+                <p className="text-[10px] text-muted-foreground">Comma-separated</p>
               </div>
             </div>
+
+            <CropsStep
+              cropInfo={form.cropInfo}
+              yieldHistory={form.yieldHistory}
+              setFormData={(updater: (prev: FormState) => FormState) =>
+                setForm((prev) => updater(prev))
+              }
+            />
           </>
         )}
 
@@ -339,11 +412,11 @@ export default function Onboarding() {
             <h2 className="text-lg font-semibold text-foreground">Financial Information</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Annual Income (USD)</label>
-                <Input type="number" value={form.annual_income} onChange={(e) => update("annual_income", e.target.value)} placeholder="0.00" />
+                <Label>Annual Income (USD)</Label>
+                <Input value={form.annual_income} onChange={(e) => update("annual_income", e.target.value)} type="number" placeholder="0.00" />
               </div>
-              <div className="space-y-1.5 flex items-end gap-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-sm pt-7">
                   <input
                     type="checkbox"
                     checked={form.has_bank_account}
@@ -355,24 +428,24 @@ export default function Onboarding() {
               </div>
               {form.has_bank_account && (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Bank Name</label>
+                  <Label>Bank Name</Label>
                   <Input value={form.bank_name} onChange={(e) => update("bank_name", e.target.value)} placeholder="Enter bank name" />
                 </div>
               )}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Mobile Money Provider</label>
+                <Label>Mobile Money Provider</Label>
                 <Select value={form.mobile_money_provider} onValueChange={(v) => update("mobile_money_provider", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select provider" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ecocash">Ecocash</SelectItem>
                     <SelectItem value="netone">Netone</SelectItem>
                     <SelectItem value="mukuru">Mukuru</SelectItem>
-                    <SelectItem value="remit">World Remit</SelectItem>
+                    <SelectItem value="world-remit">World Remit</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <label className="text-sm font-medium text-foreground">Notes</label>
+                <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Any additional observations..." rows={3} />
               </div>
             </div>
@@ -395,7 +468,10 @@ export default function Onboarding() {
             <button
               type="button"
               onClick={goNext}
-              disabled={step === "personal" && (!form.first_name || !form.last_name)}
+              disabled={
+                (step === "personal" && (!form.first_name || !form.last_name)) ||
+                (step === "crops" && !form.cropInfo.primaryCrop)
+              }
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all"
             >
               Next
@@ -417,5 +493,3 @@ export default function Onboarding() {
     </div>
   );
 }
-
-
