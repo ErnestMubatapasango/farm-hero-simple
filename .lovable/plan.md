@@ -1,53 +1,63 @@
-# Switch to Supabase `inviteUserByEmail`
+## Goal
 
-Replace the custom invitations table flow with Supabase's built-in invite. Supabase sends the email; the invitee clicks the link, lands on a "set password" page, and is signed in.
+After an invitee accepts their invite, the Invitations page should reflect the new state automatically: status flips from "pending" → "accepted", and we surface the accepted user's **full name**, **email**, and **acceptance timestamp** so admins can see who is actively using the system.
 
-## What changes
+Yes, the request makes sense and it's mostly a small extension of what already exists. The DB trigger `handle_invited_user()` already sets `invitations.status = 'accepted'`, `accepted_at = now()`, and `invited_user_id = NEW.id`. We just need to (a) join in the profile name and (b) render the new fields. Then we audit it with an FMEA.
 
-### Backend
-1. **New server function** `inviteUser` (`src/lib/invitations.functions.ts`)
-   - Protected with `requireSupabaseAuth`.
-   - Verifies caller has `super_admin` or `developer` role in their org.
-   - Calls `supabaseAdmin.auth.admin.inviteUserByEmail(email, { data: { organization_id, role, invited_by, full_name? }, redirectTo: '<origin>/accept-invite' })`.
-   - Inserts a row into `invitations` (status `pending`) for the admin UI list, keyed by the returned `user.id`.
+---
 
-2. **New server function** `revokeInvitation`
-   - Calls `supabaseAdmin.auth.admin.deleteUser(user_id)` and deletes the `invitations` row.
+## Proposed changes
 
-3. **New server function** `resendInvitation`
-   - Re-calls `inviteUserByEmail` for the same email; updates the row's `created_at`.
+1. **Data fetch (AdminInvitations.tsx)** — change the query from `select("*")` to also pull the joined profile name via the `invited_user_id` relationship:
+   ```
+   .select("id, email, role, status, created_at, accepted_at, invited_user_id, profiles:invited_user_id(full_name)")
+   ```
+   (Falls back to email if no profile row yet.)
 
-4. **DB migration** (small)
-   - Add nullable `invited_user_id uuid` to `invitations` so we can map back to the auth user for revoke/resend.
-   - Drop the `token` column usage (kept as nullable for backward compat or removed — see Open Question).
-   - Add a trigger on `auth.users` insert: when `raw_user_meta_data` contains `organization_id` + `role`, populate `profiles.organization_id`, `profiles.full_name`, and insert into `user_roles`. Mark matching `invitations` row as `accepted`.
+2. **UI** — for accepted rows, render a second line with: `Accepted by {full_name || email} · {accepted_at}`. Keep the existing pending/expired display unchanged. Hide Resend for accepted rows (already conditional on `status === "pending"`, so just verify).
 
-### Frontend
-5. **`AdminInvitations.tsx`**
-   - Replace direct `supabase.from('invitations').insert(...)` with `useServerFn(inviteUser)`.
-   - Replace "Copy invite link" button with "Resend email".
-   - Delete button calls `revokeInvitation`.
+3. **Freshness** — add a lightweight refresh path so the list updates without a manual reload:
+   - Option A (simple): refetch on tab focus + a "Refresh" button.
+   - Option B (live): subscribe to Postgres changes on `invitations` filtered by `organization_id`.
+   Recommend A for MVP, B as a follow-up.
 
-6. **New route `src/pages/AcceptInvite.tsx`** (mounted at `/accept-invite`)
-   - User arrives with a Supabase recovery/invite session already established.
-   - Shows "Set your password" form (+ optional full name).
-   - Calls `supabase.auth.updateUser({ password, data: { full_name } })`.
-   - Redirects to `/`.
+4. **Type** — extend the local `Invitation` interface to include `invited_user_id` and `profiles: { full_name: string | null } | null`.
 
-7. **`Login.tsx`**
-   - Remove the `accept-invite` mode and `?invite=<token>` handling (no longer used).
-   - Keep sign-in and create-org modes.
+No DB migration is required — all needed columns and the trigger already exist.
 
-## Email template
-Supabase sends the default "You've been invited" email. Customize copy/branding later in the Supabase dashboard → Authentication → Email Templates → Invite User. No domain/SMTP setup required to start (uses Supabase's shared sender, rate-limited).
+---
 
-## Files touched
-- new: `src/lib/invitations.functions.ts`
-- new: `src/pages/AcceptInvite.tsx` + route registration in `App.tsx`
-- edit: `src/pages/AdminInvitations.tsx`
-- edit: `src/pages/Login.tsx`
-- migration: alter `invitations`, add trigger on `auth.users`
+## FMEA (Failure Mode and Effects Analysis)
 
-## Open questions
-1. Keep the `invitations` table for admin visibility (recommended), or remove it entirely and read invited users from `auth.admin.listUsers()`?
-2. Should the trigger auto-assign role on first sign-in, or should `AcceptInvite.tsx` do it client-side after `updateUser`? (Trigger is more robust.)
+| # | Failure mode | Cause | Effect | Sev | Likelihood | Mitigation |
+|---|---|---|---|---|---|---|
+| 1 | Status stays "pending" in UI after acceptance | List is only fetched on mount; no realtime/refetch | Admin thinks user hasn't joined; may resend unnecessarily | Med | High | Refetch on focus + Refresh button; later add realtime channel on `invitations` |
+| 2 | `full_name` is null right after acceptance | User accepted invite link but hasn't submitted the AcceptInvite form yet (name only saved on `updateUser`) | UI shows email only, looks "incomplete" | Low | Med | Fall back to email; show "Name pending" hint; consider writing `full_name` from invite metadata in the trigger |
+| 3 | Profile join returns null (RLS) | `profiles` SELECT policy only allows the user themselves or same-org admins/super_admins; works here but breaks if invited_user_id is in another org (developer view) | Developer sees blank names cross-org | Low | Low | Acceptable; developer role bypasses via existing policy `has_role(... 'developer')` |
+| 4 | `invited_user_id` not set | Trigger fired but email casing mismatch / org mismatch left invitation row unchanged | Status remains "pending" forever even though auth user exists | High | Low | Trigger already does `lower(email)` match + org check; add a backfill admin action ("Mark accepted") and log when trigger updates 0 rows |
+| 5 | Multiple invites for same email across orgs | User accepts org A's invite; org B's invite still pending and shouldn't flip | Wrong invite marked accepted | High | Low | Trigger already filters by `organization_id` — keep it that way; add unique partial index `(lower(email), organization_id) WHERE status='pending'` |
+| 6 | Stale `accepted_at` after a resend | Resend resets `status='pending', accepted_at=null` but UI cache shows old timestamp | Confusing audit trail | Low | Low | Refetch after resend (already done); store a `resent_at` column if true history is needed |
+| 7 | PII exposure (email/name) to lower-privileged users | `invitations` SELECT policy allows admin + super_admin + developer — admin can see all org invites incl. accepted user names | Possibly fine, but admins seeing super_admin invites' names could be sensitive | Low | Med | Confirm with product; optionally restrict accepted-user details to super_admin |
+| 8 | Joined select breaks if FK relationship not declared in PostgREST | `profiles:invited_user_id(full_name)` requires a declared FK from `invitations.invited_user_id` → `profiles.user_id` (or `auth.users`); none exists today | Query returns 400 "could not find relationship" | High | High | Either (a) add FK `invitations.invited_user_id REFERENCES profiles(user_id)` (needs `profiles.user_id` UNIQUE), or (b) skip the join and fetch profiles in a second query keyed by `invited_user_id` |
+| 9 | Race: trigger runs before profile insert | `handle_new_user` and `handle_invited_user` both fire on `auth.users` insert; ordering matters for the join | First fetch shows null name | Low | Med | Fallback to email; refetch later resolves it |
+| 10 | Realtime channel leak | If we add subscription, forgetting to unsubscribe on unmount | Memory leak, duplicate fetches | Low | Med | Use cleanup in `useEffect` return |
+
+**Highest-risk item is #8** — the embedded select syntax depends on a FK that doesn't exist in this schema. The safe path is to do **two queries**: fetch invitations, then fetch `profiles` for the set of `invited_user_id`s and merge client-side. This avoids a schema migration and keeps RLS straightforward.
+
+---
+
+## Recommended implementation (after your approval)
+
+1. AdminInvitations.tsx
+   - Extend `Invitation` interface with `invited_user_id` and `accepted_at` (already there).
+   - After loading invitations, collect non-null `invited_user_id`s and run a second `profiles` query: `select("user_id, full_name").in("user_id", ids)`. Build a `Map<user_id, full_name>`.
+   - For accepted rows, render: `Accepted by {nameMap.get(inv.invited_user_id) ?? inv.email} · {format(inv.accepted_at)}`.
+   - Add a "Refresh" icon button next to "Invite User" and a `visibilitychange` listener that refetches when the tab becomes visible.
+2. No migration, no edge function change, no new secret.
+
+Optional follow-ups (not in this change):
+- Realtime subscription on `invitations` for instant updates.
+- `resent_at` column for full audit history.
+- Admin-only "Force mark accepted" button to handle FMEA case #4.
+
+Approve this and I'll implement steps 1–2.

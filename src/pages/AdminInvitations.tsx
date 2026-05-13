@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
@@ -24,16 +24,18 @@ interface Invitation {
   email: string;
   role: string;
   status: string;
-  
   created_at: string | null;
   accepted_at: string | null;
+  invited_user_id: string | null;
 }
 
 export default function AdminInvitations() {
   const { organizationId, hasRole, session } = useAuth();
   const { toast } = useToast();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [nameMap, setNameMap] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -41,20 +43,60 @@ export default function AdminInvitations() {
 
   const isSuperAdmin = hasRole("super_admin") || hasRole("developer");
 
-  const loadInvitations = async () => {
-    setLoading(true);
-    let query = supabase.from("invitations").select("*").order("created_at", { ascending: false });
+  const loadInvitations = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setLoading(true);
+    let query = supabase
+      .from("invitations")
+      .select("id, email, role, status, created_at, accepted_at, invited_user_id")
+      .order("created_at", { ascending: false });
     if (!hasRole("developer")) {
       query = query.eq("organization_id", organizationId);
     }
     const { data } = await query;
-    setInvitations(data || []);
+    const invs = (data || []) as Invitation[];
+    setInvitations(invs);
+
+    const ids = Array.from(
+      new Set(invs.map((i) => i.invited_user_id).filter((v): v is string => !!v))
+    );
+    if (ids.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", ids);
+      const map: Record<string, string | null> = {};
+      (profs || []).forEach((p: any) => {
+        map[p.user_id] = p.full_name;
+      });
+      setNameMap(map);
+    } else {
+      setNameMap({});
+    }
     setLoading(false);
-  };
+  }, [organizationId, hasRole]);
 
   useEffect(() => {
     loadInvitations();
-  }, [organizationId]);
+  }, [loadInvitations]);
+
+  // Refetch when the tab regains focus so accepted invites surface promptly.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadInvitations(false);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [loadInvitations]);
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    await loadInvitations(false);
+    setRefreshing(false);
+  };
 
   const callInviteFn = async (payload: Record<string, unknown>) => {
     const { data, error } = await supabase.functions.invoke("invite-user", { body: payload });
@@ -73,7 +115,7 @@ export default function AdminInvitations() {
       setEmail("");
       setRole("enumerator");
       setDialogOpen(false);
-      loadInvitations();
+      loadInvitations(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -84,7 +126,7 @@ export default function AdminInvitations() {
     try {
       await callInviteFn({ action: "revoke", invitation_id: id });
       toast({ title: "Invitation removed" });
-      loadInvitations();
+      loadInvitations(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -94,7 +136,7 @@ export default function AdminInvitations() {
     try {
       await callInviteFn({ action: "resend", invitation_id: id });
       toast({ title: "Invitation resent" });
-      loadInvitations();
+      loadInvitations(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -123,92 +165,112 @@ export default function AdminInvitations() {
           <h1 className="text-2xl font-bold text-foreground">Invitations</h1>
           <p className="text-muted-foreground mt-1">Invite admins and enumerators to your organization.</p>
         </div>
-        {isSuperAdmin && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition-all">
-                <Send className="h-4 w-4" />
-                Invite User
-              </button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Invite a User</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleInvite} className="space-y-4 mt-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Email</label>
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="user@example.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Role</label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="enumerator">Enumerator</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <button
-                  type="submit"
-                  disabled={sending}
-                  className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  {sending ? "Sending..." : "Send Invitation"}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-all disabled:opacity-50"
+            title="Refresh"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+          {isSuperAdmin && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition-all">
+                  <Send className="h-4 w-4" />
+                  Invite User
                 </button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Invite a User</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleInvite} className="space-y-4 mt-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Email</label>
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="user@example.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Role</label>
+                    <Select value={role} onValueChange={setRole}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="enumerator">Enumerator</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={sending}
+                    className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {sending ? "Sending..." : "Send Invitation"}
+                  </button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       </div>
 
       <div className="kyf-card-flat divide-y divide-border">
         {invitations.length === 0 ? (
           <p className="p-6 text-center text-muted-foreground">No invitations yet.</p>
         ) : (
-          invitations.map((inv) => (
-            <div key={inv.id} className="flex items-center justify-between px-5 py-4">
-              <div className="flex items-center gap-3">
-                {statusIcon(inv.status)}
-                <div>
-                  <p className="text-sm font-medium text-foreground">{inv.email}</p>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {inv.role.replace("_", " ")} · {inv.status}
-                    {inv.created_at && ` · ${new Date(inv.created_at).toLocaleDateString()}`}
-                  </p>
+          invitations.map((inv) => {
+            const acceptedName = inv.invited_user_id ? nameMap[inv.invited_user_id] : null;
+            const isAccepted = inv.status === "accepted";
+            return (
+              <div key={inv.id} className="flex items-center justify-between px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5">{statusIcon(inv.status)}</div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{inv.email}</p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {inv.role.replace("_", " ")} · {inv.status}
+                      {inv.created_at && ` · sent ${new Date(inv.created_at).toLocaleDateString()}`}
+                    </p>
+                    {isAccepted && inv.accepted_at && (
+                      <p className="text-xs text-green-600 mt-1 normal-case">
+                        Accepted by {acceptedName || inv.email} ·{" "}
+                        {new Date(inv.accepted_at).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {inv.status === "pending" && isSuperAdmin && (
+                    <button
+                      onClick={() => handleResend(inv.id)}
+                      className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      title="Resend invitation email"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </button>
+                  )}
+                  {isSuperAdmin && (
+                    <button
+                      onClick={() => handleDelete(inv.id)}
+                      className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      title="Delete invitation"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                {inv.status === "pending" && isSuperAdmin && (
-                  <button
-                    onClick={() => handleResend(inv.id)}
-                    className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    title="Resend invitation email"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </button>
-                )}
-                {isSuperAdmin && (
-                  <button
-                    onClick={() => handleDelete(inv.id)}
-                    className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    title="Delete invitation"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
