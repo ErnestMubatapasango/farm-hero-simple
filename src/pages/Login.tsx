@@ -11,10 +11,8 @@ type AuthMode = "signin" | "create-org";
 export default function Login() {
   const { session } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const inviteToken = searchParams.get("invite");
 
-  const [mode, setMode] = useState<AuthMode>(inviteToken ? "accept-invite" : "signin");
+  const [mode, setMode] = useState<AuthMode>("signin");
   const [orgName, setOrgName] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,27 +21,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [inviteInfo, setInviteInfo] = useState<{ email: string; role: string; organization_id: string } | null>(null);
-
-  // Load invite info
-  useEffect(() => {
-    if (!inviteToken) return;
-    supabase
-      .from("invitations")
-      .select("email, role, organization_id")
-      .eq("token", inviteToken)
-      .eq("status", "pending")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setInviteInfo(data);
-          setEmail(data.email);
-        } else {
-          setError("This invitation is invalid or has already been used.");
-          setMode("signin");
-        }
-      });
-  }, [inviteToken]);
 
   if (session) return <Navigate to="/" replace />;
 
