@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, Clock, CheckCircle, XCircle, Copy, Trash2 } from "lucide-react";
+import { Loader2, Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
