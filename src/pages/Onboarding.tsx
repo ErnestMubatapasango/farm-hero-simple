@@ -295,24 +295,24 @@ export default function Onboarding() {
             <h2 className="text-lg font-semibold text-foreground">Personal Information</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>First Name *</Label>
+                <Label>First Name </Label>
                 <Input value={form.first_name} onChange={(e) => update("first_name", e.target.value)} placeholder="Enter first name..." required />
               </div>
               <div className="space-y-1.5">
-                <Label>Last Name *</Label>
+                <Label>Last Name </Label>
                 <Input value={form.last_name} onChange={(e) => update("last_name", e.target.value)} placeholder="Enter last name..." required />
               </div>
               <div className="space-y-1.5">
-                <Label>Phone *</Label>
+                <Label>Phone </Label>
                 <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+263..." required />
               </div>
               <div className="space-y-1.5">
                 <Label>Email</Label>
-                <Input value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="farmer@example.com" />
+                <Input value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="farmer@example.com"  required/>
               </div>
               <div className="space-y-1.5">
                 <Label>Date of Birth</Label>
-                <Input type="date" value={form.date_of_birth} onChange={(e) => update("date_of_birth", e.target.value)} />
+                <Input type="date" value={form.date_of_birth} onChange={(e) => update("date_of_birth", e.target.value)} required />
               </div>
               <div className="space-y-1.5">
                 <Label>Gender</Label>
@@ -326,7 +326,7 @@ export default function Onboarding() {
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>National ID *</Label>
+                <Label>National ID </Label>
                 <Input value={form.national_id} onChange={(e) => update("national_id", e.target.value)} placeholder="Enter national ID number..." required />
               </div>
             </div>
