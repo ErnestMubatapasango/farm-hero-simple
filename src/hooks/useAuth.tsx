@@ -37,12 +37,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session, fetchRolesAndOrg]);
 
+  const checkRevoked = useCallback(async (userId: string) => {
+    const { data } = await supabase
+      .from("invitations")
+      .select("id")
+      .eq("invited_user_id", userId)
+      .eq("status", "revoked")
+      .limit(1);
+    if (data && data.length > 0) {
+      await supabase.auth.signOut();
+      return true;
+    }
+    return false;
+  }, []);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         if (session?.user?.id) {
-          setTimeout(() => fetchRolesAndOrg(session.user.id), 0);
+          const uid = session.user.id;
+          setTimeout(async () => {
+            const revoked = await checkRevoked(uid);
+            if (!revoked) await fetchRolesAndOrg(uid);
+          }, 0);
         } else {
           setRoles([]);
           setOrganizationId(null);
@@ -51,17 +69,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user?.id) {
-        fetchRolesAndOrg(session.user.id).then(() => setLoading(false));
-      } else {
-        setLoading(false);
+        const revoked = await checkRevoked(session.user.id);
+        if (!revoked) await fetchRolesAndOrg(session.user.id);
       }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchRolesAndOrg]);
+  }, [fetchRolesAndOrg, checkRevoked]);
+
+  // Realtime: sign out immediately if this user's invitation gets revoked
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    const channel = supabase
+      .channel(`invite-revoke-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "invitations",
+          filter: `invited_user_id=eq.${userId}`,
+        },
+        async (payload) => {
+          const newRow = payload.new as { status?: string };
+          if (newRow?.status === "revoked") {
+            await supabase.auth.signOut();
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id]);
 
   const hasRole = useCallback((role: AppRole) => roles.includes(role), [roles]);
   const hasAnyRole = useCallback((r: AppRole[]) => r.some((role) => roles.includes(role)), [roles]);
