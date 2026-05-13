@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2 } from "lucide-react";
+import { Loader2, Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2, Ban } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -27,6 +27,8 @@ interface Invitation {
   created_at: string | null;
   accepted_at: string | null;
   invited_user_id: string | null;
+  revoked_at: string | null;
+  revoked_by: string | null;
 }
 
 export default function AdminInvitations() {
@@ -41,13 +43,19 @@ export default function AdminInvitations() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("enumerator");
 
+  // Revoke confirmation state
+  const [revokeTarget, setRevokeTarget] = useState<Invitation | null>(null);
+  const [revokePassword, setRevokePassword] = useState("");
+  const [revokeError, setRevokeError] = useState("");
+  const [revoking, setRevoking] = useState(false);
+
   const isSuperAdmin = hasRole("super_admin") || hasRole("developer");
 
   const loadInvitations = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
     let query = supabase
       .from("invitations")
-      .select("id, email, role, status, created_at, accepted_at, invited_user_id")
+      .select("id, email, role, status, created_at, accepted_at, invited_user_id, revoked_at, revoked_by")
       .order("created_at", { ascending: false });
     if (!hasRole("developer")) {
       query = query.eq("organization_id", organizationId);
@@ -57,7 +65,9 @@ export default function AdminInvitations() {
     setInvitations(invs);
 
     const ids = Array.from(
-      new Set(invs.map((i) => i.invited_user_id).filter((v): v is string => !!v))
+      new Set(
+        invs.flatMap((i) => [i.invited_user_id, i.revoked_by]).filter((v): v is string => !!v)
+      )
     );
     if (ids.length) {
       const { data: profs } = await supabase
@@ -79,7 +89,6 @@ export default function AdminInvitations() {
     loadInvitations();
   }, [loadInvitations]);
 
-  // Refetch when the tab regains focus so accepted invites surface promptly.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible") loadInvitations(false);
@@ -92,7 +101,6 @@ export default function AdminInvitations() {
     };
   }, [loadInvitations]);
 
-  // Realtime: refresh whenever an invitation row changes (e.g. user accepts).
   useEffect(() => {
     const channel = supabase
       .channel("invitations-changes")
@@ -137,14 +145,50 @@ export default function AdminInvitations() {
     setSending(false);
   };
 
-  const handleDelete = async (id: string) => {
+  const openRevokeDialog = (inv: Invitation) => {
+    setRevokeTarget(inv);
+    setRevokePassword("");
+    setRevokeError("");
+  };
+
+  const closeRevokeDialog = () => {
+    if (revoking) return;
+    setRevokeTarget(null);
+    setRevokePassword("");
+    setRevokeError("");
+  };
+
+  const handleConfirmRevoke = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!revokeTarget || !session?.user?.email) return;
+    setRevoking(true);
+    setRevokeError("");
+    // Re-authenticate the acting admin as a credential probe.
+    const { error: authErr } = await supabase.auth.signInWithPassword({
+      email: session.user.email,
+      password: revokePassword,
+    });
+    if (authErr) {
+      setRevokeError("Incorrect password.");
+      setRevoking(false);
+      return;
+    }
     try {
-      await callInviteFn({ action: "revoke", invitation_id: id });
-      toast({ title: "Invitation removed" });
+      await callInviteFn({ action: "revoke", invitation_id: revokeTarget.id });
+      toast({
+        title: revokeTarget.status === "accepted" ? "Access revoked" : "Invitation removed",
+        description:
+          revokeTarget.status === "accepted"
+            ? "User can no longer sign in. Farmers they enrolled remain in your organization."
+            : undefined,
+      });
+      setRevokeTarget(null);
+      setRevokePassword("");
       loadInvitations(false);
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setRevokeError(err.message);
     }
+    setRevoking(false);
   };
 
   const handleResend = async (id: string) => {
@@ -161,6 +205,7 @@ export default function AdminInvitations() {
     switch (status) {
       case "accepted": return <CheckCircle className="h-4 w-4 text-green-500" />;
       case "expired": return <XCircle className="h-4 w-4 text-destructive" />;
+      case "revoked": return <Ban className="h-4 w-4 text-muted-foreground" />;
       default: return <Clock className="h-4 w-4 text-yellow-500" />;
     }
   };
@@ -244,7 +289,9 @@ export default function AdminInvitations() {
         ) : (
           invitations.map((inv) => {
             const acceptedName = inv.invited_user_id ? nameMap[inv.invited_user_id] : null;
+            const revokerName = inv.revoked_by ? nameMap[inv.revoked_by] : null;
             const isAccepted = inv.status === "accepted";
+            const isRevoked = inv.status === "revoked";
             return (
               <div key={inv.id} className="flex items-center justify-between px-5 py-4">
                 <div className="flex items-start gap-3">
@@ -261,6 +308,12 @@ export default function AdminInvitations() {
                         {new Date(inv.accepted_at).toLocaleString()}
                       </p>
                     )}
+                    {isRevoked && inv.revoked_at && (
+                      <p className="text-xs text-muted-foreground mt-1 normal-case">
+                        Access revoked {new Date(inv.revoked_at).toLocaleString()}
+                        {revokerName ? ` by ${revokerName}` : ""}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -273,11 +326,11 @@ export default function AdminInvitations() {
                       <RefreshCw className="h-4 w-4" />
                     </button>
                   )}
-                  {isSuperAdmin && (
+                  {isSuperAdmin && !isRevoked && (
                     <button
-                      onClick={() => handleDelete(inv.id)}
+                      onClick={() => openRevokeDialog(inv)}
                       className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      title="Delete invitation"
+                      title={isAccepted ? "Revoke access" : "Delete invitation"}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -288,6 +341,67 @@ export default function AdminInvitations() {
           })
         )}
       </div>
+
+      {/* Revoke confirmation with password re-auth */}
+      <Dialog open={!!revokeTarget} onOpenChange={(open) => !open && closeRevokeDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {revokeTarget?.status === "accepted" ? "Revoke access" : "Delete invitation"}
+            </DialogTitle>
+          </DialogHeader>
+          {revokeTarget && (
+            <form onSubmit={handleConfirmRevoke} className="space-y-4 mt-2">
+              <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+                <p className="font-medium text-foreground">{revokeTarget.email}</p>
+                <p className="text-xs text-muted-foreground capitalize">
+                  {revokeTarget.role.replace("_", " ")} · {revokeTarget.status}
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {revokeTarget.status === "accepted"
+                  ? "This user will lose access immediately. Farmers they enrolled will remain in your organization with their name preserved as the enroller."
+                  : "This pending invitation will be deleted and the invite link will no longer work."}
+              </p>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Confirm with your password
+                </label>
+                <Input
+                  type="password"
+                  value={revokePassword}
+                  onChange={(e) => setRevokePassword(e.target.value)}
+                  placeholder="Your password"
+                  required
+                  autoFocus
+                />
+                {revokeError && <p className="text-xs text-destructive">{revokeError}</p>}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeRevokeDialog}
+                  disabled={revoking}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={revoking || !revokePassword}
+                  className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {revoking
+                    ? "Working…"
+                    : revokeTarget.status === "accepted"
+                    ? "Revoke access"
+                    : "Delete"}
+                </button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
