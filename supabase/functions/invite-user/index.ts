@@ -23,16 +23,18 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return json({ error: "Unauthorized" }, 401);
+  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
-  // Caller-scoped client to identify who is calling and check their role
-  const callerClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
-
-  const { data: userData, error: userErr } = await callerClient.auth.getUser();
-  if (userErr || !userData.user) return json({ error: "Unauthorized" }, 401);
-  const callerId = userData.user.id;
+  // Decode JWT (already verified by gateway via verify_jwt = true) to get caller id.
+  let callerId: string;
+  try {
+    const token = authHeader.slice("Bearer ".length);
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    callerId = payload.sub;
+    if (!callerId) throw new Error("No sub claim");
+  } catch {
+    return json({ error: "Unauthorized" }, 401);
+  }
 
   let body: { email?: string; role?: string; action?: string; invitation_id?: string };
   try {

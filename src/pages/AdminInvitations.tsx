@@ -24,7 +24,7 @@ interface Invitation {
   email: string;
   role: string;
   status: string;
-  token: string;
+  
   created_at: string | null;
   accepted_at: string | null;
 }
