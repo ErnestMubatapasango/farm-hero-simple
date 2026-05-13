@@ -96,69 +96,51 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">KYF Platform</h1>
           <p className="text-sm text-muted-foreground">
-            {mode === "create-org"
-              ? "Create your organization"
-              : mode === "accept-invite"
-                ? "Accept your invitation"
-                : "Sign in to continue"}
+            {mode === "create-org" ? "Create your organization" : "Sign in to continue"}
           </p>
         </div>
 
-        {/* Mode tabs (hidden during invite accept) */}
-        {!inviteToken && (
-          <div className="flex rounded-lg bg-muted p-1">
-            <button
-              type="button"
-              onClick={() => { setMode("signin"); setError(""); setMessage(""); }}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => { setMode("create-org"); setError(""); setMessage(""); }}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "create-org" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
-            >
-              Create Organization
-            </button>
-          </div>
-        )}
-
-        {/* Invite info badge */}
-        {mode === "accept-invite" && inviteInfo && (
-          <div className="rounded-lg bg-primary/10 px-4 py-3 text-sm">
-            <p className="font-medium text-foreground">
-              You've been invited as <span className="capitalize">{inviteInfo.role.replace("_", " ")}</span>
-            </p>
-            <p className="text-muted-foreground text-xs mt-0.5">Create your account to get started.</p>
-          </div>
-        )}
+        <div className="flex rounded-lg bg-muted p-1">
+          <button
+            type="button"
+            onClick={() => { setMode("signin"); setError(""); setMessage(""); }}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("create-org"); setError(""); setMessage(""); }}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "create-org" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+          >
+            Create Organization
+          </button>
+        </div>
 
         <form onSubmit={getSubmitHandler()} className="space-y-4">
           {mode === "create-org" && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Organization Name</label>
-              <Input
-                type="text"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                placeholder="Acme Farms Ltd"
-                required
-              />
-            </div>
-          )}
-
-          {(mode === "create-org" || mode === "accept-invite") && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Full Name</label>
-              <Input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="John Doe"
-                required
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Organization Name</label>
+                <Input
+                  type="text"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  placeholder="Acme Farms Ltd"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Full Name</label>
+                <Input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+            </>
           )}
 
           <div className="space-y-2">
@@ -169,7 +151,6 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              disabled={mode === "accept-invite"}
             />
           </div>
 
@@ -211,24 +192,9 @@ export default function Login() {
             disabled={loading}
             className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:opacity-90 active:scale-[0.97] disabled:opacity-50"
           >
-            {loading
-              ? "Please wait..."
-              : mode === "create-org"
-                ? "Create Organization"
-                : mode === "accept-invite"
-                  ? "Create Account"
-                  : "Sign In"}
+            {loading ? "Please wait..." : mode === "create-org" ? "Create Organization" : "Sign In"}
           </button>
         </form>
-
-        {mode === "accept-invite" && (
-          <p className="text-center text-xs text-muted-foreground">
-            Already have an account?{" "}
-            <button onClick={() => { setMode("signin"); setError(""); setMessage(""); }} className="text-primary hover:underline">
-              Sign in instead
-            </button>
-          </p>
-        )}
       </div>
     </div>
   );
