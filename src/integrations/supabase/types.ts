@@ -214,7 +214,6 @@ export type Database = {
           organization_id: string
           role: Database["public"]["Enums"]["app_role"]
           status: string
-          token: string | null
         }
         Insert: {
           accepted_at?: string | null
@@ -226,7 +225,6 @@ export type Database = {
           organization_id: string
           role: Database["public"]["Enums"]["app_role"]
           status?: string
-          token?: string | null
         }
         Update: {
           accepted_at?: string | null
@@ -238,7 +236,6 @@ export type Database = {
           organization_id?: string
           role?: Database["public"]["Enums"]["app_role"]
           status?: string
-          token?: string | null
         }
         Relationships: [
           {
@@ -350,13 +347,22 @@ export type Database = {
     }
     Functions: {
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      has_role:
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              _org_id: string
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
     }
     Enums: {
       app_role: "developer" | "super_admin" | "admin" | "enumerator"
