@@ -188,13 +188,13 @@ export default function AdminInvitations() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                {inv.status === "pending" && (
+                {inv.status === "pending" && isSuperAdmin && (
                   <button
-                    onClick={() => copyInviteLink(inv.token)}
+                    onClick={() => handleResend(inv.id)}
                     className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    title="Copy invite link"
+                    title="Resend invitation email"
                   >
-                    <Copy className="h-4 w-4" />
+                    <RefreshCw className="h-4 w-4" />
                   </button>
                 )}
                 {isSuperAdmin && (
