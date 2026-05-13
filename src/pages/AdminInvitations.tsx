@@ -56,42 +56,48 @@ export default function AdminInvitations() {
     loadInvitations();
   }, [organizationId]);
 
+  const callInviteFn = async (payload: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke("invite-user", { body: payload });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!organizationId || !session?.user?.id) return;
+    if (!session?.user?.id) return;
     setSending(true);
-
-    const { error } = await supabase.from("invitations").insert({
-      organization_id: organizationId,
-      email,
-      role: role as any,
-      invited_by: session.user.id,
-    });
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await callInviteFn({ action: "invite", email, role });
       toast({ title: "Invitation sent", description: `Invited ${email} as ${role.replace("_", " ")}` });
       setEmail("");
       setRole("enumerator");
       setDialogOpen(false);
       loadInvitations();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
     setSending(false);
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("invitations").delete().eq("id", id);
-    if (!error) {
+    try {
+      await callInviteFn({ action: "revoke", invitation_id: id });
       toast({ title: "Invitation removed" });
       loadInvitations();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
 
-  const copyInviteLink = (token: string) => {
-    const link = `${window.location.origin}/login?invite=${token}`;
-    navigator.clipboard.writeText(link);
-    toast({ title: "Link copied", description: "Invite link copied to clipboard" });
+  const handleResend = async (id: string) => {
+    try {
+      await callInviteFn({ action: "resend", invitation_id: id });
+      toast({ title: "Invitation resent" });
+      loadInvitations();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
   };
 
   const statusIcon = (status: string) => {
