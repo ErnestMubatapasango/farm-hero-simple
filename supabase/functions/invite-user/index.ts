@@ -124,15 +124,35 @@ Deno.serve(async (req) => {
     if (!body.invitation_id) return json({ error: "invitation_id required" }, 400);
     const { data: inv } = await admin
       .from("invitations")
-      .select("invited_user_id, status")
+      .select("invited_user_id, status, organization_id")
       .eq("id", body.invitation_id)
       .maybeSingle();
     if (!inv) return json({ error: "Invitation not found" }, 404);
 
-    if (inv.invited_user_id && inv.status !== "accepted") {
-      await admin.auth.admin.deleteUser(inv.invited_user_id);
+    if (inv.status === "pending") {
+      // Hard delete: no profile/role/farmers exist yet.
+      if (inv.invited_user_id) {
+        await admin.auth.admin.deleteUser(inv.invited_user_id);
+      }
+      await admin.from("invitations").delete().eq("id", body.invitation_id);
+      return json({ ok: true });
     }
-    await admin.from("invitations").delete().eq("id", body.invitation_id);
+
+    if (inv.status === "accepted") {
+      // Soft deactivate: drop role(s), preserve auth user + profile so
+      // farmers.enrolled_by still resolves to a real name.
+      const caller = createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { error: rpcErr } = await caller.rpc("revoke_invitation", {
+        _invitation_id: body.invitation_id,
+      });
+      if (rpcErr) return json({ error: rpcErr.message }, 400);
+      return json({ ok: true });
+    }
+
+    // Already revoked — nothing to do.
     return json({ ok: true });
   }
 

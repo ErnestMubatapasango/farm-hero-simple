@@ -1,53 +1,75 @@
-# Switch to Supabase `inviteUserByEmail`
+# Soft-deactivate revoked invitees + admin re-auth
 
-Replace the custom invitations table flow with Supabase's built-in invite. Supabase sends the email; the invitee clicks the link, lands on a "set password" page, and is signed in.
+## Goals
 
-## What changes
+1. Removing an enumerator/admin from the Invitations list must **not** delete farmers they enrolled and must **not** lose attribution.
+2. The revoked user must immediately lose all access to the platform.
+3. Before any revoke happens, the acting super_admin re-enters their password to confirm intent.
 
-### Backend
-1. **New server function** `inviteUser` (`src/lib/invitations.functions.ts`)
-   - Protected with `requireSupabaseAuth`.
-   - Verifies caller has `super_admin` or `developer` role in their org.
-   - Calls `supabaseAdmin.auth.admin.inviteUserByEmail(email, { data: { organization_id, role, invited_by, full_name? }, redirectTo: '<origin>/accept-invite' })`.
-   - Inserts a row into `invitations` (status `pending`) for the admin UI list, keyed by the returned `user.id`.
+## Behavior matrix (after change)
 
-2. **New server function** `revokeInvitation`
-   - Calls `supabaseAdmin.auth.admin.deleteUser(user_id)` and deletes the `invitations` row.
+| Invitation state | What "Remove" does |
+|---|---|
+| `pending` | Delete the auth user (no profile/role yet) and delete the invitations row. Unchanged from today. |
+| `accepted` | Delete the user's `user_roles` row(s) for this org, mark the invitation `revoked` with `revoked_at`/`revoked_by`. Keep `auth.users`, `profiles`, and all `farmers` rows intact so `enrolled_by` still resolves to a real name. The user can no longer log in to anything in this org (no role = `get_user_org_id` returns null and every RLS check fails). |
 
-3. **New server function** `resendInvitation`
-   - Re-calls `inviteUserByEmail` for the same email; updates the row's `created_at`.
+The user keeps existing in `auth.users` for attribution only. They cannot enrol farmers, view data, or be re-invited under the same row (a fresh invite creates a new invitations row).
 
-4. **DB migration** (small)
-   - Add nullable `invited_user_id uuid` to `invitations` so we can map back to the auth user for revoke/resend.
-   - Drop the `token` column usage (kept as nullable for backward compat or removed — see Open Question).
-   - Add a trigger on `auth.users` insert: when `raw_user_meta_data` contains `organization_id` + `role`, populate `profiles.organization_id`, `profiles.full_name`, and insert into `user_roles`. Mark matching `invitations` row as `accepted`.
+## Changes
 
-### Frontend
-5. **`AdminInvitations.tsx`**
-   - Replace direct `supabase.from('invitations').insert(...)` with `useServerFn(inviteUser)`.
-   - Replace "Copy invite link" button with "Resend email".
-   - Delete button calls `revokeInvitation`.
+### 1. Database (migration)
 
-6. **New route `src/pages/AcceptInvite.tsx`** (mounted at `/accept-invite`)
-   - User arrives with a Supabase recovery/invite session already established.
-   - Shows "Set your password" form (+ optional full name).
-   - Calls `supabase.auth.updateUser({ password, data: { full_name } })`.
-   - Redirects to `/`.
+- `invitations`: add `revoked_at timestamptz`, `revoked_by uuid`. Allow `'revoked'` as a valid status value.
+- New SECURITY DEFINER RPC `revoke_invitation(_invitation_id uuid)`:
+  - Verifies caller is `super_admin` of the invitation's org (or `developer`).
+  - If status = `pending` and `invited_user_id` is set → call nothing here; the edge function handles auth user delete (kept in edge fn because RPC can't touch `auth.users`).
+  - If status = `accepted` → delete matching `user_roles` rows for `(invited_user_id, organization_id)`, set invitation `status='revoked'`, `revoked_at=now()`, `revoked_by=auth.uid()`.
+- Realtime already enabled on `invitations` from the previous migration.
 
-7. **`Login.tsx`**
-   - Remove the `accept-invite` mode and `?invite=<token>` handling (no longer used).
-   - Keep sign-in and create-org modes.
+### 2. Edge function `invite-user` — `revoke` action
 
-## Email template
-Supabase sends the default "You've been invited" email. Customize copy/branding later in the Supabase dashboard → Authentication → Email Templates → Invite User. No domain/SMTP setup required to start (uses Supabase's shared sender, rate-limited).
+Replace current behavior:
+
+```text
+if status == 'pending':
+    auth.admin.deleteUser(invited_user_id)
+    delete invitations row
+else if status == 'accepted':
+    call rpc revoke_invitation(invitation_id)   # soft deactivate
+else:
+    no-op
+```
+
+The auth user is preserved on accepted revokes so `profiles.full_name` keeps resolving for `farmers.enrolled_by`.
+
+### 3. Admin re-authentication before revoke
+
+In `AdminInvitations.tsx`, when the super_admin clicks "Remove":
+
+1. Open a confirmation dialog that shows:
+   - Invitee name + email + role
+   - Plain-language consequence ("They will lose access immediately. Farmers they enrolled will remain in your organization.")
+   - A password field for the acting admin.
+2. On confirm, call `supabase.auth.signInWithPassword({ email: currentUser.email, password })` against the *current* session's email. This is a fresh credential check — Supabase returns an error if the password is wrong without disturbing the session.
+3. Only on success, call the `revoke` edge function action.
+4. On failure, show inline error and do not call revoke.
+
+(We use `signInWithPassword` purely as a credential probe — it does not affect the active session beyond refreshing tokens.)
+
+### 4. UI surface
+
+- Status pill gains a third state `revoked` (muted gray with a slashed-circle icon).
+- Accepted-invitee row continues to show "Accepted by {name} · {timestamp}". Revoked-invitee row shows "Access revoked · {timestamp} by {admin name}".
+- The "Remove" button is hidden once status = `revoked`.
+
+## Out of scope (not changed in this plan)
+
+- No farmer reassignment UI. `farmers.enrolled_by` still points to the (now access-less) user; their name still appears on each farmer card via the existing profile join.
+- No bulk-revoke.
+- No way to re-activate a revoked user — re-invite via a new invitation row instead.
 
 ## Files touched
-- new: `src/lib/invitations.functions.ts`
-- new: `src/pages/AcceptInvite.tsx` + route registration in `App.tsx`
-- edit: `src/pages/AdminInvitations.tsx`
-- edit: `src/pages/Login.tsx`
-- migration: alter `invitations`, add trigger on `auth.users`
 
-## Open questions
-1. Keep the `invitations` table for admin visibility (recommended), or remove it entirely and read invited users from `auth.admin.listUsers()`?
-2. Should the trigger auto-assign role on first sign-in, or should `AcceptInvite.tsx` do it client-side after `updateUser`? (Trigger is more robust.)
+- New migration (add columns, RPC).
+- `supabase/functions/invite-user/index.ts` — new revoke branch logic.
+- `src/pages/AdminInvitations.tsx` — confirmation dialog with password re-auth, render `revoked` state.

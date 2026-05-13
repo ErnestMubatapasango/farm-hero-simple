@@ -208,10 +208,13 @@ export type Database = {
           accepted_at: string | null
           created_at: string
           email: string
+          full_name: string | null
           id: string
           invited_by: string
           invited_user_id: string | null
           organization_id: string
+          revoked_at: string | null
+          revoked_by: string | null
           role: Database["public"]["Enums"]["app_role"]
           status: string
         }
@@ -219,10 +222,13 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string
           email: string
+          full_name?: string | null
           id?: string
           invited_by: string
           invited_user_id?: string | null
           organization_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
           role: Database["public"]["Enums"]["app_role"]
           status?: string
         }
@@ -230,10 +236,13 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string
           email?: string
+          full_name?: string | null
           id?: string
           invited_by?: string
           invited_user_id?: string | null
           organization_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           status?: string
         }
@@ -346,6 +355,53 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_my_invitation:
+        | {
+            Args: never
+            Returns: {
+              accepted_at: string | null
+              created_at: string
+              email: string
+              full_name: string | null
+              id: string
+              invited_by: string
+              invited_user_id: string | null
+              organization_id: string
+              revoked_at: string | null
+              revoked_by: string | null
+              role: Database["public"]["Enums"]["app_role"]
+              status: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "invitations"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { _full_name?: string }
+            Returns: {
+              accepted_at: string | null
+              created_at: string
+              email: string
+              full_name: string | null
+              id: string
+              invited_by: string
+              invited_user_id: string | null
+              organization_id: string
+              revoked_at: string | null
+              revoked_by: string | null
+              role: Database["public"]["Enums"]["app_role"]
+              status: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "invitations"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_role:
         | {
@@ -363,6 +419,29 @@ export type Database = {
             }
             Returns: boolean
           }
+      revoke_invitation: {
+        Args: { _invitation_id: string }
+        Returns: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          invited_by: string
+          invited_user_id: string | null
+          organization_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invitations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       app_role: "developer" | "super_admin" | "admin" | "enumerator"
