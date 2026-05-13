@@ -210,10 +210,11 @@ export type Database = {
           email: string
           id: string
           invited_by: string
+          invited_user_id: string | null
           organization_id: string
           role: Database["public"]["Enums"]["app_role"]
           status: string
-          token: string
+          token: string | null
         }
         Insert: {
           accepted_at?: string | null
@@ -221,10 +222,11 @@ export type Database = {
           email: string
           id?: string
           invited_by: string
+          invited_user_id?: string | null
           organization_id: string
           role: Database["public"]["Enums"]["app_role"]
           status?: string
-          token?: string
+          token?: string | null
         }
         Update: {
           accepted_at?: string | null
@@ -232,10 +234,11 @@ export type Database = {
           email?: string
           id?: string
           invited_by?: string
+          invited_user_id?: string | null
           organization_id?: string
           role?: Database["public"]["Enums"]["app_role"]
           status?: string
-          token?: string
+          token?: string | null
         }
         Relationships: [
           {

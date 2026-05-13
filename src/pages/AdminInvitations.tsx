@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, Clock, CheckCircle, XCircle, Copy, Trash2 } from "lucide-react";
+import { Loader2, Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -56,42 +56,48 @@ export default function AdminInvitations() {
     loadInvitations();
   }, [organizationId]);
 
+  const callInviteFn = async (payload: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke("invite-user", { body: payload });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!organizationId || !session?.user?.id) return;
+    if (!session?.user?.id) return;
     setSending(true);
-
-    const { error } = await supabase.from("invitations").insert({
-      organization_id: organizationId,
-      email,
-      role: role as any,
-      invited_by: session.user.id,
-    });
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await callInviteFn({ action: "invite", email, role });
       toast({ title: "Invitation sent", description: `Invited ${email} as ${role.replace("_", " ")}` });
       setEmail("");
       setRole("enumerator");
       setDialogOpen(false);
       loadInvitations();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
     setSending(false);
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("invitations").delete().eq("id", id);
-    if (!error) {
+    try {
+      await callInviteFn({ action: "revoke", invitation_id: id });
       toast({ title: "Invitation removed" });
       loadInvitations();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
 
-  const copyInviteLink = (token: string) => {
-    const link = `${window.location.origin}/login?invite=${token}`;
-    navigator.clipboard.writeText(link);
-    toast({ title: "Link copied", description: "Invite link copied to clipboard" });
+  const handleResend = async (id: string) => {
+    try {
+      await callInviteFn({ action: "resend", invitation_id: id });
+      toast({ title: "Invitation resent" });
+      loadInvitations();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
   };
 
   const statusIcon = (status: string) => {
@@ -182,13 +188,13 @@ export default function AdminInvitations() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                {inv.status === "pending" && (
+                {inv.status === "pending" && isSuperAdmin && (
                   <button
-                    onClick={() => copyInviteLink(inv.token)}
+                    onClick={() => handleResend(inv.id)}
                     className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    title="Copy invite link"
+                    title="Resend invitation email"
                   >
-                    <Copy className="h-4 w-4" />
+                    <RefreshCw className="h-4 w-4" />
                   </button>
                 )}
                 {isSuperAdmin && (
