@@ -208,6 +208,7 @@ export type Database = {
           accepted_at: string | null
           created_at: string
           email: string
+          full_name: string | null
           id: string
           invited_by: string
           invited_user_id: string | null
@@ -219,6 +220,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string
           email: string
+          full_name?: string | null
           id?: string
           invited_by: string
           invited_user_id?: string | null
@@ -230,6 +232,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string
           email?: string
+          full_name?: string | null
           id?: string
           invited_by?: string
           invited_user_id?: string | null
@@ -346,6 +349,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_my_invitation: {
+        Args: never
+        Returns: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          invited_by: string
+          invited_user_id: string | null
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invitations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_role:
         | {

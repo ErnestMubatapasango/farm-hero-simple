@@ -1,0 +1,72 @@
+-- RPC the invited user calls after setting their password to mark
+-- their invitation accepted. SECURITY DEFINER bypasses the
+-- super_admin-only RLS on invitations.
+CREATE OR REPLACE FUNCTION public.accept_my_invitation()
+RETURNS public.invitations
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_email text;
+  v_org_id uuid;
+  v_role public.app_role;
+  v_inv public.invitations;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT email,
+         NULLIF(raw_user_meta_data ->> 'organization_id', '')::uuid,
+         NULLIF(raw_user_meta_data ->> 'role', '')::public.app_role
+    INTO v_email, v_org_id, v_role
+    FROM auth.users
+   WHERE id = v_user_id;
+
+  -- Ensure profile + role rows exist (in case the original trigger
+  -- ran before the invitations row existed).
+  INSERT INTO public.profiles (user_id, full_name, organization_id)
+  VALUES (
+    v_user_id,
+    (SELECT raw_user_meta_data ->> 'full_name' FROM auth.users WHERE id = v_user_id),
+    v_org_id
+  )
+  ON CONFLICT (user_id) DO UPDATE
+    SET organization_id = COALESCE(EXCLUDED.organization_id, public.profiles.organization_id),
+        full_name = COALESCE(EXCLUDED.full_name, public.profiles.full_name);
+
+  IF v_org_id IS NOT NULL AND v_role IS NOT NULL THEN
+    INSERT INTO public.user_roles (user_id, organization_id, role)
+    VALUES (v_user_id, v_org_id, v_role)
+    ON CONFLICT (user_id, organization_id, role) DO NOTHING;
+  END IF;
+
+  -- Flip the matching pending invitation to accepted.
+  UPDATE public.invitations
+     SET status = 'accepted',
+         accepted_at = now(),
+         invited_user_id = v_user_id
+   WHERE lower(email) = lower(v_email)
+     AND (v_org_id IS NULL OR organization_id = v_org_id)
+     AND status = 'pending'
+   RETURNING * INTO v_inv;
+
+  RETURN v_inv;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.accept_my_invitation() TO authenticated;
+
+-- Enable realtime on invitations so admin UI updates instantly.
+ALTER TABLE public.invitations REPLICA IDENTITY FULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+     WHERE pubname = 'supabase_realtime' AND tablename = 'invitations'
+  ) THEN
+    EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.invitations';
+  END IF;
+END $$;
