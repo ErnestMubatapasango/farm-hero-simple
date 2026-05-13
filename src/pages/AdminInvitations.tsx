@@ -92,6 +92,21 @@ export default function AdminInvitations() {
     };
   }, [loadInvitations]);
 
+  // Realtime: refresh whenever an invitation row changes (e.g. user accepts).
+  useEffect(() => {
+    const channel = supabase
+      .channel("invitations-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "invitations" },
+        () => loadInvitations(false)
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadInvitations]);
+
   const handleManualRefresh = async () => {
     setRefreshing(true);
     await loadInvitations(false);
