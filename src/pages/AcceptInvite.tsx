@@ -54,7 +54,9 @@ export default function AcceptInvite() {
       return;
     }
     // Mark the matching invitation as accepted (and ensure profile/role rows exist).
-    const { error: rpcErr } = await supabase.rpc("accept_my_invitation");
+    const { error: rpcErr } = await supabase.rpc("accept_my_invitation", {
+      _full_name: fullName,
+    });
     if (rpcErr) {
       console.error("accept_my_invitation failed", rpcErr);
     }
