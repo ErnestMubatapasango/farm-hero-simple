@@ -82,61 +82,7 @@ export default function Login() {
     setLoading(false);
   };
 
-  const handleAcceptInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inviteInfo || !inviteToken) return;
-    setError("");
-    setMessage("");
-    setLoading(true);
-
-    try {
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: inviteInfo.email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { full_name: fullName },
-        },
-      });
-      if (signUpError) throw signUpError;
-
-      const userId = authData.user?.id;
-      if (!userId) {
-        setMessage("Check your email for a confirmation link, then sign in.");
-        setLoading(false);
-        return;
-      }
-
-      // Update profile with org
-      await supabase
-        .from("profiles")
-        .update({ organization_id: inviteInfo.organization_id, full_name: fullName })
-        .eq("user_id", userId);
-
-      // Assign role
-      await supabase
-        .from("user_roles")
-        .insert({
-          user_id: userId,
-          organization_id: inviteInfo.organization_id,
-          role: inviteInfo.role as any,
-        });
-
-      // Mark invitation as accepted
-      await supabase
-        .from("invitations")
-        .update({ status: "accepted", accepted_at: new Date().toISOString() })
-        .eq("token", inviteToken);
-
-      setMessage("Account created! Check your email for a confirmation link, then sign in.");
-    } catch (err: any) {
-      setError(err.message);
-    }
-    setLoading(false);
-  };
-
   const getSubmitHandler = () => {
-    if (mode === "accept-invite") return handleAcceptInvite;
     if (mode === "create-org") return handleCreateOrg;
     return handleSignIn;
   };
