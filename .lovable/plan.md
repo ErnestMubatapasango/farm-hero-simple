@@ -1,75 +1,57 @@
-# Soft-deactivate revoked invitees + admin re-auth
 
-## Goals
+## Goal
 
-1. Removing an enumerator/admin from the Invitations list must **not** delete farmers they enrolled and must **not** lose attribution.
-2. The revoked user must immediately lose all access to the platform.
-3. Before any revoke happens, the acting super_admin re-enters their password to confirm intent.
+Bring the admin farmer screens in line with the new onboarding flow. Today the list shows only a few fields (name, region, farming_type, phone, status), and the detail page is missing per-crop **farming methods**, **yield history**, the new **location fields** (ward/village), and still labels income as **KES** instead of **USD**.
 
-## Behavior matrix (after change)
+## 1. AdminFarmers (list — `src/pages/AdminFarmers.tsx`)
 
-| Invitation state | What "Remove" does |
-|---|---|
-| `pending` | Delete the auth user (no profile/role yet) and delete the invitations row. Unchanged from today. |
-| `accepted` | Delete the user's `user_roles` row(s) for this org, mark the invitation `revoked` with `revoked_at`/`revoked_by`. Keep `auth.users`, `profiles`, and all `farmers` rows intact so `enrolled_by` still resolves to a real name. The user can no longer log in to anything in this org (no role = `get_user_org_id` returns null and every RLS check fails). |
+Update the row to show what enumerators actually capture now:
 
-The user keeps existing in `auth.users` for attribution only. They cannot enrol farmers, view data, or be re-invited under the same row (a fresh invite creates a new invitations row).
+- Avatar initials + **full name** (unchanged).
+- Subline 1: `farm_name` · `farm_size_hectares` ha · `farming_type`
+- Subline 2: location chain — `region` › `sub_county` › `ward` › `village` (skip blanks).
+- Right-side meta: small chips for `primary_crops` (first 2 + "+N") and a livestock icon if any. Phone moved to a tooltip / hidden on small screens.
+- Keep status icon + chevron.
 
-## Changes
+Filters:
+- Keep search (extend to also match `farm_name`, `village`, `ward`, any `primary_crops`).
+- Keep status pill filter (`all / pending / verified / rejected`).
+- Add a second pill row for **farming type** (`all / crop / livestock / mixed`) with counts.
 
-### 1. Database (migration)
+Query: extend the `select` to include `farm_name, farm_size_hectares, sub_county, ward, village, primary_crops, primary_livestock`.
 
-- `invitations`: add `revoked_at timestamptz`, `revoked_by uuid`. Allow `'revoked'` as a valid status value.
-- New SECURITY DEFINER RPC `revoke_invitation(_invitation_id uuid)`:
-  - Verifies caller is `super_admin` of the invitation's org (or `developer`).
-  - If status = `pending` and `invited_user_id` is set → call nothing here; the edge function handles auth user delete (kept in edge fn because RPC can't touch `auth.users`).
-  - If status = `accepted` → delete matching `user_roles` rows for `(invited_user_id, organization_id)`, set invitation `status='revoked'`, `revoked_at=now()`, `revoked_by=auth.uid()`.
-- Realtime already enabled on `invitations` from the previous migration.
+## 2. AdminFarmerDetail (`src/pages/AdminFarmerDetail.tsx`)
 
-### 2. Edge function `invite-user` — `revoke` action
+### Data fetching
+Replace the single `farmers` query with three parallel queries (Promise.all):
+1. `farmers` (existing).
+2. `farmer_crops` where `farmer_id = :id` ordered by `position` — gives per-crop `farming_method`.
+3. `crop_yield_history` where `farmer_id = :id` ordered by `crop, year`.
 
-Replace current behavior:
+### Sections
+- **Personal** — unchanged.
+- **Location** — unchanged (already shows region/sub_county/ward/village).
+- **Farm Information** — keep farm name, size, type. Replace the flat `Primary Crops` row with a **Crops** subsection: one card per `farmer_crops` row showing crop name as title and a small "Farming method: X" pill. Keep `Primary Livestock` as a chip list.
+- **Yield History** (new section, only if rows exist) — one small table per crop:
+  ```
+  Cocoa
+  ┌──────┬────────────┬──────────────┐
+  │ Year │ Yield (kg) │ Revenue (USD)│
+  ├──────┼────────────┼──────────────┤
+  │ 2024 │ 1,180      │ $7,200       │
+  │ 2025 │ 1,340      │ $8,750       │
+  └──────┴────────────┴──────────────┘
+  ```
+- **Financial** — change income label/format from `KES …` to `USD …` (matches onboarding). Bank + mobile money unchanged.
+- **Notes** — unchanged.
 
-```text
-if status == 'pending':
-    auth.admin.deleteUser(invited_user_id)
-    delete invitations row
-else if status == 'accepted':
-    call rpc revoke_invitation(invitation_id)   # soft deactivate
-else:
-    no-op
-```
+## Out of scope
 
-The auth user is preserved on accepted revokes so `profiles.full_name` keeps resolving for `farmers.enrolled_by`.
-
-### 3. Admin re-authentication before revoke
-
-In `AdminInvitations.tsx`, when the super_admin clicks "Remove":
-
-1. Open a confirmation dialog that shows:
-   - Invitee name + email + role
-   - Plain-language consequence ("They will lose access immediately. Farmers they enrolled will remain in your organization.")
-   - A password field for the acting admin.
-2. On confirm, call `supabase.auth.signInWithPassword({ email: currentUser.email, password })` against the *current* session's email. This is a fresh credential check — Supabase returns an error if the password is wrong without disturbing the session.
-3. Only on success, call the `revoke` edge function action.
-4. On failure, show inline error and do not call revoke.
-
-(We use `signInWithPassword` purely as a credential probe — it does not affect the active session beyond refreshing tokens.)
-
-### 4. UI surface
-
-- Status pill gains a third state `revoked` (muted gray with a slashed-circle icon).
-- Accepted-invitee row continues to show "Accepted by {name} · {timestamp}". Revoked-invitee row shows "Access revoked · {timestamp} by {admin name}".
-- The "Remove" button is hidden once status = `revoked`.
-
-## Out of scope (not changed in this plan)
-
-- No farmer reassignment UI. `farmers.enrolled_by` still points to the (now access-less) user; their name still appears on each farmer card via the existing profile join.
-- No bulk-revoke.
-- No way to re-activate a revoked user — re-invite via a new invitation row instead.
+- No DB schema changes (all needed columns/tables already exist with correct RLS).
+- No edits to onboarding itself, no new edit-farmer flow.
+- No changes to verification logic (verify/reject buttons stay as is).
 
 ## Files touched
 
-- New migration (add columns, RPC).
-- `supabase/functions/invite-user/index.ts` — new revoke branch logic.
-- `src/pages/AdminInvitations.tsx` — confirmation dialog with password re-auth, render `revoked` state.
+- `src/pages/AdminFarmers.tsx` — extended query, richer row, second filter row.
+- `src/pages/AdminFarmerDetail.tsx` — extra queries, Crops subsection, new Yield History section, USD label.

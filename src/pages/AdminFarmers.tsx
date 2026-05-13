@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
-import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, Beef } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface Farmer {
@@ -11,7 +11,14 @@ interface Farmer {
   last_name: string;
   phone: string | null;
   region: string | null;
+  sub_county: string | null;
+  ward: string | null;
+  village: string | null;
+  farm_name: string | null;
+  farm_size_hectares: number | null;
   farming_type: string | null;
+  primary_crops: string[] | null;
+  primary_livestock: string[] | null;
   status: string;
   created_at: string;
 }
@@ -22,47 +29,67 @@ export default function AdminFarmers() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       let query = supabase
         .from("farmers")
-        .select("id, first_name, last_name, phone, region, farming_type, status, created_at")
+        .select(
+          "id, first_name, last_name, phone, region, sub_county, ward, village, farm_name, farm_size_hectares, farming_type, primary_crops, primary_livestock, status, created_at"
+        )
         .order("created_at", { ascending: false });
       if (!hasRole("developer")) {
         query = query.eq("organization_id", organizationId);
       }
       const { data } = await query;
-      setFarmers(data || []);
+      setFarmers((data as Farmer[]) || []);
       setLoading(false);
     }
     load();
   }, [organizationId, hasRole]);
 
-  const filtered = farmers.filter((f) => {
-    const matchesSearch =
-      !search ||
-      `${f.first_name} ${f.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-      f.phone?.includes(search) ||
-      f.region?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || f.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return farmers.filter((f) => {
+      const matchesSearch =
+        !q ||
+        `${f.first_name} ${f.last_name}`.toLowerCase().includes(q) ||
+        f.phone?.toLowerCase().includes(q) ||
+        f.region?.toLowerCase().includes(q) ||
+        f.farm_name?.toLowerCase().includes(q) ||
+        f.ward?.toLowerCase().includes(q) ||
+        f.village?.toLowerCase().includes(q) ||
+        f.primary_crops?.some((c) => c.toLowerCase().includes(q));
+      const matchesStatus = statusFilter === "all" || f.status === statusFilter;
+      const matchesType = typeFilter === "all" || f.farming_type === typeFilter;
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [farmers, search, statusFilter, typeFilter]);
 
   const statusIcon = (status: string) => {
     switch (status) {
-      case "verified": return <CheckCircle className="h-3.5 w-3.5 text-green-500" />;
-      case "rejected": return <XCircle className="h-3.5 w-3.5 text-destructive" />;
-      default: return <Clock className="h-3.5 w-3.5 text-yellow-500" />;
+      case "verified":
+        return <CheckCircle className="h-3.5 w-3.5 text-green-500" />;
+      case "rejected":
+        return <XCircle className="h-3.5 w-3.5 text-destructive" />;
+      default:
+        return <Clock className="h-3.5 w-3.5 text-yellow-500" />;
     }
   };
 
-  const counts = {
+  const statusCounts = {
     all: farmers.length,
     pending: farmers.filter((f) => f.status === "pending").length,
     verified: farmers.filter((f) => f.status === "verified").length,
     rejected: farmers.filter((f) => f.status === "rejected").length,
+  };
+  const typeCounts = {
+    all: farmers.length,
+    crop: farmers.filter((f) => f.farming_type === "crop").length,
+    livestock: farmers.filter((f) => f.farming_type === "livestock").length,
+    mixed: farmers.filter((f) => f.farming_type === "mixed").length,
   };
 
   if (loading) {
@@ -81,26 +108,41 @@ export default function AdminFarmers() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone, region..."
-            className="pl-9"
-          />
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, phone, farm, ward, village, crop..."
+              className="pl-9"
+            />
+          </div>
+          <div className="flex rounded-lg bg-muted p-1 text-xs font-medium overflow-x-auto">
+            {(["all", "pending", "verified", "rejected"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1.5 rounded-md capitalize transition-colors whitespace-nowrap ${
+                  statusFilter === s ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                }`}
+              >
+                {s} ({statusCounts[s]})
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex rounded-lg bg-muted p-1 text-xs font-medium">
-          {(["all", "pending", "verified", "rejected"] as const).map((s) => (
+        <div className="flex rounded-lg bg-muted p-1 text-xs font-medium w-fit overflow-x-auto">
+          {(["all", "crop", "livestock", "mixed"] as const).map((t) => (
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-md capitalize transition-colors ${
-                statusFilter === s ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              key={t}
+              onClick={() => setTypeFilter(t)}
+              className={`px-3 py-1.5 rounded-md capitalize transition-colors whitespace-nowrap ${
+                typeFilter === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
               }`}
             >
-              {s} ({counts[s]})
+              {t} ({typeCounts[t]})
             </button>
           ))}
         </div>
@@ -111,33 +153,71 @@ export default function AdminFarmers() {
         {filtered.length === 0 ? (
           <p className="p-6 text-center text-muted-foreground">No farmers found.</p>
         ) : (
-          filtered.map((f) => (
-            <Link
-              key={f.id}
-              to={`/admin/farmer/${f.id}`}
-              className="flex items-center justify-between px-5 py-4 hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                  {f.first_name[0]}{f.last_name[0]}
+          filtered.map((f) => {
+            const farmBits = [
+              f.farm_name,
+              f.farm_size_hectares != null ? `${f.farm_size_hectares} ha` : null,
+              f.farming_type,
+            ].filter(Boolean);
+            const locationBits = [f.region, f.sub_county, f.ward, f.village].filter(Boolean);
+            const crops = f.primary_crops || [];
+            const extraCrops = crops.length > 2 ? crops.length - 2 : 0;
+            return (
+              <Link
+                key={f.id}
+                to={`/admin/farmer/${f.id}`}
+                className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                    {f.first_name[0]}
+                    {f.last_name[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {f.first_name} {f.last_name}
+                    </p>
+                    {farmBits.length > 0 && (
+                      <p className="text-xs text-muted-foreground truncate capitalize">
+                        {farmBits.join(" · ")}
+                      </p>
+                    )}
+                    {locationBits.length > 0 && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {locationBits.join(" › ")}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{f.first_name} {f.last_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {f.region || "No location"} · {f.farming_type || "N/A"}
-                    {f.phone && ` · ${f.phone}`}
-                  </p>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="hidden sm:flex items-center gap-1">
+                    {crops.slice(0, 2).map((c) => (
+                      <span
+                        key={c}
+                        className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium"
+                      >
+                        {c}
+                      </span>
+                    ))}
+                    {extraCrops > 0 && (
+                      <span className="rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-[10px] font-medium">
+                        +{extraCrops}
+                      </span>
+                    )}
+                    {(f.primary_livestock?.length || 0) > 0 && (
+                      <Beef className="h-3.5 w-3.5 text-muted-foreground" aria-label="Has livestock" />
+                    )}
+                  </div>
+                  <span className="flex items-center gap-1 text-xs capitalize">
+                    {statusIcon(f.status)}
+                    {f.status}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-xs capitalize">
-                  {statusIcon(f.status)}
-                  {f.status}
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Link>
-          ))
+              </Link>
+            );
+          })
         )}
       </div>
     </div>
