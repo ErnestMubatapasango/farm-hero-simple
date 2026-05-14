@@ -105,6 +105,7 @@ export type Database = {
           bank_name: string | null
           created_at: string
           date_of_birth: string | null
+          district: string | null
           email: string | null
           enrolled_by: string
           farm_name: string | null
@@ -124,7 +125,6 @@ export type Database = {
           primary_livestock: string[] | null
           region: string | null
           status: string
-          sub_county: string | null
           updated_at: string
           verified_at: string | null
           verified_by: string | null
@@ -136,6 +136,7 @@ export type Database = {
           bank_name?: string | null
           created_at?: string
           date_of_birth?: string | null
+          district?: string | null
           email?: string | null
           enrolled_by: string
           farm_name?: string | null
@@ -155,7 +156,6 @@ export type Database = {
           primary_livestock?: string[] | null
           region?: string | null
           status?: string
-          sub_county?: string | null
           updated_at?: string
           verified_at?: string | null
           verified_by?: string | null
@@ -167,6 +167,7 @@ export type Database = {
           bank_name?: string | null
           created_at?: string
           date_of_birth?: string | null
+          district?: string | null
           email?: string | null
           enrolled_by?: string
           farm_name?: string | null
@@ -186,7 +187,6 @@ export type Database = {
           primary_livestock?: string[] | null
           region?: string | null
           status?: string
-          sub_county?: string | null
           updated_at?: string
           verified_at?: string | null
           verified_by?: string | null
