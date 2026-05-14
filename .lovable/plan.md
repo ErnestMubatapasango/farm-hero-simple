@@ -1,68 +1,111 @@
 ## Goal
 
-Give enumerators a fast path to find farmers they onboarded and edit them via the same multi-step form they used at onboarding.
+Implement two MVP backend-backed features for KYF:
+1. **Farmer documents** — uploads, viewing, and admin verification on the Farmer Detail page.
+2. **Credit scoring** — persisted scores with org-wide list view + per-farmer drill-down.
 
-## 1. Dashboard quick action (`src/pages/Dashboard.tsx`)
+---
 
-- Add a new `QuickAction` card visible to enumerators: **"My Farmers"** → links to `/admin/farmers`, description "View & edit farmers you onboarded".
-- Show this card for `enumerator` role (admins already see "Review Farmers", so we can show this only when the user is an enumerator without admin powers — same gating used in `AdminFarmers`).
+## 1. Database (single migration)
 
-## 2. Edit button on each farmer row (`src/pages/AdminFarmers.tsx`)
+### Storage bucket
+- Create private bucket `farmer-documents` (not public; signed URLs for downloads).
+- Files stored at `{organization_id}/{farmer_id}/{document_id}.{ext}`.
+- RLS on `storage.objects`:
+  - SELECT: org members of `organization_id` folder.
+  - INSERT: any user with `can_edit_farmer(farmer_id)`.
+  - DELETE: admins/super_admins of org OR the uploader (when farmer is draft/rejected).
 
-- For each row where the current user can edit the farmer (status is `draft` or `rejected` AND `enrolled_by === user.id`, OR user is admin/super_admin/developer), render a small pencil (`Pencil` from lucide-react) button next to the chevron.
-- Clicking the pencil navigates to `/admin/farmer/:id/edit` (use `e.preventDefault()` + `e.stopPropagation()` so the row link doesn't also fire).
-- Verified/submitted records owned by an enumerator who isn't admin → no pencil shown (edit is locked by RLS anyway, surface that in UI).
+### Table: `farmer_documents`
+Fields (domain only): `farmer_id`, `organization_id`, `uploaded_by`, `document_type` (id, land_title, receipt, insurance, photo, other), `file_path`, `file_name`, `mime_type`, `file_size`, `status` (pending, verified, rejected), `verified_by`, `verified_at`, `notes`.
+- RLS:
+  - SELECT: org members.
+  - INSERT: `can_edit_farmer(farmer_id)` AND `uploaded_by = auth.uid()`.
+  - UPDATE (verify/reject): admin/super_admin/developer of org. Edit notes/replace file: uploader on draft/rejected farmers.
+  - DELETE: admin/super_admin/developer OR uploader on draft/rejected farmer.
 
-## 3. Reusable onboarding form + edit route
+### Table: `credit_scores`
+Fields (domain only): `farmer_id` (unique), `organization_id`, `score` (300–850), `band`, `breakdown` (jsonb — stored ScoreBreakdown[]), `recommendations` (jsonb), `computed_by`, `computed_at`, `inputs_hash` (text, to detect when recompute is needed).
+- RLS:
+  - SELECT: org members.
+  - INSERT/UPDATE: `can_edit_farmer(farmer_id)` OR admin/super_admin/developer (anyone allowed to view a farmer can trigger recompute).
+  - DELETE: super_admin/developer.
+- Unique index on `farmer_id`.
 
-The current `src/pages/Onboarding.tsx` mixes UI and "create" logic. Refactor lightly so the same UI handles edit:
+---
 
-- **Extract** the form body + `FormState`/`emptyForm` into `src/components/onboarding/FarmerForm.tsx`. Props:
-  - `mode: "create" | "edit"`
-  - `initialData?: FormState`
-  - `farmerId?: string` (only in edit)
-  - Internal submit handler branches on `mode`.
-- **`Onboarding.tsx`** becomes a thin wrapper: `<FarmerForm mode="create" />`.
-- **New route** `src/pages/EditFarmer.tsx` mounted at `/admin/farmer/:id/edit` (wire it in `src/App.tsx` next to the existing `/admin/farmer/:id` route, gated by the same `ProtectedRoute`):
-  1. On mount, load:
-     - `farmers` row by id
-     - `farmer_crops` (ordered by `position`)
-     - `crop_yield_history` (current + previous year)
-  2. Map into `FormState` (primary/secondary crop from positions 1/2, `farmingMethods[crop]` from `farming_method`, `yieldHistory[crop_year]` from yield rows).
-  3. If user can't edit (status not in `draft`/`rejected` and not admin) → show a read-only banner + link back to detail page. Don't even render the form.
-  4. Render `<FarmerForm mode="edit" farmerId={id} initialData={mapped} />`.
+## 2. Documents UI (Farmer Detail page only)
 
-## 4. Submit logic in edit mode
+New `FarmerDocumentsSection` component, rendered inside `AdminFarmerDetail.tsx`:
+- Lists all `farmer_documents` for the farmer, grouped by `document_type` with status badge.
+- Per row: file name, uploader, uploaded date, status badge, download button (signed URL), and (admin-only) Verify / Reject buttons + notes prompt.
+- Upload control:
+  - Visible when `canEdit` (existing logic on detail page).
+  - Document type selector (id, land_title, receipt, insurance, photo, other).
+  - File input (accept images + pdf, client-side max 10 MB).
+  - On upload: insert row, then upload to storage at computed path. Show toast on success/failure.
+- Delete button on row when allowed.
+- All file paths fetched as signed URLs (60s expiry) via `supabase.storage.from('farmer-documents').createSignedUrl`.
 
-Inside `FarmerForm.handleSubmit` when `mode === "edit"`:
+No new routes, no onboarding-step changes.
 
-- `UPDATE farmers` SET all editable columns by `id = farmerId`. Do **not** touch `status`, `enrolled_by`, `organization_id`, `verified_*`, `submitted_at` — the audit trigger handles `updated_by`/`updated_at` and the activity log.
-- For crops: simplest correct approach — `DELETE FROM farmer_crops WHERE farmer_id = :id`, then `INSERT` the current selection (positions 1/2). RLS allows this because `can_edit_farmer()` is true for owners on draft/rejected and admins always.
-- For yield history: same pattern — `DELETE FROM crop_yield_history WHERE farmer_id = :id`, then re-insert the non-empty rows from the form.
-- Toast "Farmer updated" and navigate back to `/admin/farmer/:id`.
+---
 
-If anything fails after the farmers UPDATE we surface a toast — we do not attempt to roll back the farmer row (unlike create, which deletes the orphan farmer on failure) because the row already existed.
+## 3. Credit Scoring
+
+### Scoring engine reuse
+`src/lib/credit-score.ts` already exists. Extend its `computeCreditScore` input shape to accept the real DB rows we have (farmer row, farmer_crops, crop_yield_history, farmer_documents — replacing the current `documents`/`financialRecord` mock placeholders). Map:
+- `farmProfile` ← farmer row (farm_size_hectares, region, district, primary_crops, etc.).
+- `financialRecord` ← farmer row (annual_income, has_bank_account; `loan_status` set to `none` for now since column not in schema).
+- `documents` ← `farmer_documents` rows.
+- `cropHistory` ← `crop_yield_history` rows.
+- `profile` ← farmer row (full_name = first_name+last_name, phone).
+
+Add a small wrapper `loadAndComputeScore(farmerId)` in `src/lib/credit-score-service.ts` that:
+1. Fetches the 4 inputs in parallel.
+2. Calls `computeCreditScore`.
+3. Computes a stable `inputs_hash` (SHA over the inputs).
+4. Upserts into `credit_scores` (only if `inputs_hash` changed or `force=true`).
+5. Returns the `CreditScoreResult`.
+
+### List view (refactor `src/pages/CreditScore.tsx`)
+- For `enumerator`: list shows farmers they enrolled (RLS already org-scoped; client filter by `enrolled_by`).
+- For `admin`/`super_admin`/`developer`: all org farmers.
+- Columns: name, region, primary crop, score (band-colored), band, last computed.
+- Search box (name) + status filter (verified-only toggle).
+- "Recompute all" button (admin only) — runs `loadAndComputeScore` per farmer in batches of 5.
+- Click row → `/credit-score/:farmerId`.
+
+### Detail view: new route `src/pages/CreditScoreDetail.tsx` at `/credit-score/:farmerId`
+- Big score gauge with band color.
+- Breakdown table: each pillar with weight, score, weighted contribution, detail string.
+- Recommendations list.
+- "Recompute" button (re-runs `loadAndComputeScore(force=true)`).
+- Link back to farmer detail.
+- Last computed timestamp + computed_by.
+
+Both pages use the persisted `credit_scores` row for instant render; recompute writes back.
+
+---
+
+## 4. Routing & navigation
+
+- Add `/credit-score/:farmerId` route in `src/App.tsx` (inside `ProtectedRoute` + `AppLayout`, no `AdminRoute` wrapper — RLS handles enumerator scope).
+- Existing sidebar link to `/credit-score` already present.
 
 ## 5. Out of scope
 
-- No DB migration (RLS + triggers from the previous migration already cover this; `crop_yield_history` DELETE policy currently only allows super_admin — see note below).
-- No design changes beyond the new card and pencil icon.
+- No financial_records table (deferred to Phase 2 — credit engine handles missing data gracefully today).
+- No OCR / extracted fields on documents.
+- No cross-farmer documents page (`/documents` placeholder unchanged).
+- No batch async recompute jobs (in-process loop is fine for MVP org sizes).
+- No design changes — use existing `kyf-card` and tokens.
 
-## Open question / heads-up
+---
 
-The current `crop_yield_history` DELETE RLS policy only allows `super_admin` / `developer`. If we go with the delete-then-insert approach for yields, an enumerator editing their own draft farmer will hit a permission error on yields. Two options:
+## Technical notes (for reference)
 
-1. **Recommended**: extend the DELETE policy to `can_edit_farmer(farmer_id)` (tiny migration).
-2. Alternative: do per-row upsert (`INSERT ... ON CONFLICT (farmer_id, crop, year) DO UPDATE`) and skip deletes — requires adding a unique constraint on `(farmer_id, crop, year)` (also a migration).
-
-I'll go with option 1 unless you prefer option 2.
-
-## Files touched
-
-- `src/pages/Dashboard.tsx` — add quick action
-- `src/pages/AdminFarmers.tsx` — pencil button on rows
-- `src/components/onboarding/FarmerForm.tsx` — new (extracted from Onboarding)
-- `src/pages/Onboarding.tsx` — thin wrapper
-- `src/pages/EditFarmer.tsx` — new
-- `src/App.tsx` — register `/admin/farmer/:id/edit`
-- `supabase/migrations/...` — extend `crop_yield_history` DELETE policy (option 1)
+- Storage path strategy lets us scope RLS by folder. We use `(storage.foldername(name))[1] = organization_id::text`.
+- `inputs_hash` lets the list view show "stale" indicator if the underlying farmer/crop/yield rows were updated after `computed_at`.
+- All Supabase calls from client; auth context provides `organizationId` and `roles`.
+- Files: 1 migration, 2 new components (`FarmerDocumentsSection`, `CreditScoreDetail`), 1 new lib (`credit-score-service.ts`), edits to `CreditScore.tsx`, `AdminFarmerDetail.tsx`, `App.tsx`, and `credit-score.ts`.
