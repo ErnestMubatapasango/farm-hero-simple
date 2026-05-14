@@ -110,7 +110,6 @@ export type Database = {
           enrolled_by: string
           farm_name: string | null
           farm_size_hectares: number | null
-          farming_type: string | null
           first_name: string
           gender: string | null
           has_bank_account: boolean | null
@@ -141,7 +140,6 @@ export type Database = {
           enrolled_by: string
           farm_name?: string | null
           farm_size_hectares?: number | null
-          farming_type?: string | null
           first_name: string
           gender?: string | null
           has_bank_account?: boolean | null
@@ -172,7 +170,6 @@ export type Database = {
           enrolled_by?: string
           farm_name?: string | null
           farm_size_hectares?: number | null
-          farming_type?: string | null
           first_name?: string
           gender?: string | null
           has_bank_account?: boolean | null
