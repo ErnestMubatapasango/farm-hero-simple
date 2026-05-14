@@ -157,6 +157,14 @@ export default function Dashboard() {
               description={`${stats?.pendingFarmers || 0} pending review`}
             />
           )}
+          {hasRole("enumerator") && !isAdmin && (
+            <QuickAction
+              to="/admin/farmers"
+              icon={Sprout}
+              title="My Farmers"
+              description={`${stats?.totalFarmers || 0} you've onboarded`}
+            />
+          )}
           {hasAnyRole(["super_admin", "developer"]) && (
             <QuickAction
               to="/admin/invitations"
