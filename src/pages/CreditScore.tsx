@@ -46,10 +46,6 @@ export default function CreditScore() {
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
   const enumeratorOnly = hasRole("enumerator") && !isAdmin;
 
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
   const load = async () => {
     setLoading(true);
     let q = supabase
