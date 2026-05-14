@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Link } from "react-router-dom";
-import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, FileEdit, Send } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, FileEdit, Send, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface Farmer {
@@ -20,11 +20,13 @@ interface Farmer {
   primary_crops: string[] | null;
   primary_livestock: string[] | null;
   status: string;
+  enrolled_by: string;
   created_at: string;
 }
 
 export default function AdminFarmers() {
   const { session, organizationId, hasRole, hasAnyRole } = useAuth();
+  const navigate = useNavigate();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -41,7 +43,7 @@ export default function AdminFarmers() {
       let query = supabase
         .from("farmers")
         .select(
-          "id, first_name, last_name, phone, region, district, ward, village, farm_name, farm_size_hectares, primary_crops, primary_livestock, status, created_at"
+          "id, first_name, last_name, phone, region, district, ward, village, farm_name, farm_size_hectares, primary_crops, primary_livestock, status, enrolled_by, created_at"
         )
         .order("created_at", { ascending: false });
       if (!hasRole("developer")) {
@@ -234,6 +236,23 @@ export default function AdminFarmers() {
                     {statusIcon(f.status)}
                     {f.status}
                   </span>
+                  {(hasAnyRole(["admin", "super_admin", "developer"]) ||
+                    (f.enrolled_by === session?.user?.id &&
+                      (f.status === "draft" || f.status === "rejected"))) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigate(`/admin/farmer/${f.id}/edit`);
+                      }}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      aria-label="Edit farmer"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </Link>
