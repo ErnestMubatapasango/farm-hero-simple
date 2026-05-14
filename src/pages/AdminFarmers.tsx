@@ -141,7 +141,7 @@ export default function AdminFarmers() {
             />
           </div>
           <div className="flex rounded-lg bg-muted p-1 text-xs font-medium overflow-x-auto">
-            {(["all", "pending", "verified", "rejected"] as const).map((s) => (
+            {(["all", "draft", "submitted", "verified", "rejected"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
