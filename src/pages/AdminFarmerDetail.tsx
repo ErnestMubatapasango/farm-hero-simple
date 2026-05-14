@@ -15,6 +15,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Send,
+  FileEdit,
+  History,
+  Lock,
 } from "lucide-react";
 
 interface FarmerDetail {
@@ -42,6 +46,20 @@ interface FarmerDetail {
   notes: string | null;
   created_at: string;
   verified_at: string | null;
+  enrolled_by: string | null;
+  updated_by: string | null;
+  updated_at: string | null;
+  submitted_at: string | null;
+}
+
+interface ActivityRow {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  from_status: string | null;
+  to_status: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
 interface FarmerCrop {
@@ -99,15 +117,32 @@ function formatNumber(value: number | null | undefined, suffix?: string) {
 export default function AdminFarmerDetail() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const { session, hasAnyRole } = useAuth();
+  const { session, hasAnyRole, hasRole } = useAuth();
   const { toast } = useToast();
   const [farmer, setFarmer] = useState<FarmerDetail | null>(null);
   const [crops, setCrops] = useState<FarmerCrop[]>([]);
   const [yields, setYields] = useState<YieldRow[]>([]);
+  const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
 
-  const canVerify = hasAnyRole(["admin", "super_admin", "developer"]);
+  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+  const isOwner = !!session?.user?.id && farmer?.enrolled_by === session.user.id;
+  const editableStatus = farmer?.status === "draft" || farmer?.status === "rejected";
+  const canEdit = isAdmin || (hasRole("enumerator") && isOwner && editableStatus);
+  const canSubmit = isOwner && editableStatus;
+  const canVerifyOrReject = isAdmin && farmer?.status === "submitted";
+  const isLocked = farmer?.status === "verified";
+
+  const loadActivity = async (farmerId: string) => {
+    const { data } = await supabase
+      .from("farmer_activity_log")
+      .select("id, actor_id, action, from_status, to_status, notes, created_at")
+      .eq("farmer_id", farmerId)
+      .order("created_at", { ascending: false });
+    setActivity((data as ActivityRow[]) || []);
+  };
 
   useEffect(() => {
     if (!userId) return;
@@ -132,6 +167,7 @@ export default function AdminFarmerDetail() {
       setFarmer((farmerRes.data as FarmerDetail | null) ?? null);
       setCrops((cropsRes.data as FarmerCrop[]) || []);
       setYields((yieldRes.data as YieldRow[]) || []);
+      await loadActivity(userId);
       setLoading(false);
     })();
     return () => {
@@ -149,23 +185,61 @@ export default function AdminFarmerDetail() {
     return map;
   }, [yields]);
 
-  const updateStatus = async (status: "verified" | "rejected") => {
+  const submitForReview = async () => {
+    if (!farmer) return;
+    setUpdating(true);
+    const { error } = await supabase
+      .from("farmers")
+      .update({ status: "submitted", submitted_at: new Date().toISOString() })
+      .eq("id", farmer.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Submitted for review" });
+      setFarmer((prev) => (prev ? { ...prev, status: "submitted" } : prev));
+      await loadActivity(farmer.id);
+    }
+    setUpdating(false);
+  };
+
+  const verify = async () => {
     if (!farmer || !session?.user?.id) return;
     setUpdating(true);
     const { error } = await supabase
       .from("farmers")
       .update({
-        status,
+        status: "verified",
         verified_by: session.user.id,
         verified_at: new Date().toISOString(),
       })
       .eq("id", farmer.id);
-
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `Farmer ${status}` });
-      setFarmer((prev) => (prev ? { ...prev, status, verified_at: new Date().toISOString() } : prev));
+      toast({ title: "Farmer verified" });
+      setFarmer((prev) =>
+        prev ? { ...prev, status: "verified", verified_at: new Date().toISOString() } : prev
+      );
+      await loadActivity(farmer.id);
+    }
+    setUpdating(false);
+  };
+
+  const reject = async () => {
+    if (!farmer) return;
+    const note = window.prompt("Rejection reason (will be visible to enumerator):", farmer.notes || "");
+    if (note === null) return;
+    setUpdating(true);
+    const { error } = await supabase
+      .from("farmers")
+      .update({ status: "rejected", notes: note || null })
+      .eq("id", farmer.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Farmer rejected" });
+      setFarmer((prev) => (prev ? { ...prev, status: "rejected", notes: note || null } : prev));
+      await loadActivity(farmer.id);
     }
     setUpdating(false);
   };
@@ -189,6 +263,8 @@ export default function AdminFarmerDetail() {
   const statusConfig = {
     verified: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/10" },
     rejected: { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10" },
+    submitted: { icon: Send, color: "text-blue-500", bg: "bg-blue-500/10" },
+    draft: { icon: FileEdit, color: "text-muted-foreground", bg: "bg-muted" },
     pending: { icon: Clock, color: "text-yellow-500", bg: "bg-yellow-500/10" },
   };
   const sc = statusConfig[farmer.status as keyof typeof statusConfig] || statusConfig.pending;
@@ -221,27 +297,89 @@ export default function AdminFarmerDetail() {
         </div>
       </div>
 
-      {/* Verification actions */}
-      {canVerify && farmer.status === "pending" && (
-        <div className="flex gap-3">
-          <button
-            onClick={() => updateStatus("verified")}
-            disabled={updating}
-            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            <CheckCircle className="h-4 w-4" />
-            Verify Farmer
-          </button>
-          <button
-            onClick={() => updateStatus("rejected")}
-            disabled={updating}
-            className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
-          >
-            <XCircle className="h-4 w-4" />
-            Reject
-          </button>
+      {/* Locked banner */}
+      {isLocked && (
+        <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-2.5 text-sm text-green-700 dark:text-green-400">
+          <Lock className="h-4 w-4" />
+          This record is verified and locked. Edits are no longer allowed.
         </div>
       )}
+
+      {/* Workflow actions */}
+      <div className="flex flex-wrap gap-3">
+        {canSubmit && (
+          <button
+            onClick={submitForReview}
+            disabled={updating}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
+          >
+            <Send className="h-4 w-4" />
+            Submit for Review
+          </button>
+        )}
+        {canVerifyOrReject && (
+          <>
+            <button
+              onClick={verify}
+              disabled={updating}
+              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              <CheckCircle className="h-4 w-4" />
+              Verify Farmer
+            </button>
+            <button
+              onClick={reject}
+              disabled={updating}
+              className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
+            >
+              <XCircle className="h-4 w-4" />
+              Reject
+            </button>
+          </>
+        )}
+        {canEdit && !isLocked && (
+          <span className="text-xs text-muted-foreground self-center">
+            Editing UI coming soon — for now use the onboarding flow.
+          </span>
+        )}
+      </div>
+
+      {/* Activity log */}
+      <div className="kyf-card p-5 space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowActivity((v) => !v)}
+          className="flex items-center gap-2 text-sm font-semibold text-foreground w-full"
+        >
+          <History className="h-4 w-4 text-primary" />
+          Activity ({activity.length})
+          <span className="ml-auto text-xs text-muted-foreground">
+            {showActivity ? "Hide" : "Show"}
+          </span>
+        </button>
+        {showActivity && (
+          <div className="space-y-2">
+            {activity.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No activity recorded.</p>
+            ) : (
+              activity.map((a) => (
+                <div key={a.id} className="text-xs border-l-2 border-border pl-3 py-1">
+                  <p className="text-foreground capitalize">
+                    {a.action.replace(/_/g, " ")}
+                    {a.from_status && a.to_status && (
+                      <span className="text-muted-foreground"> — {a.from_status} → {a.to_status}</span>
+                    )}
+                  </p>
+                  {a.notes && <p className="text-muted-foreground mt-0.5">"{a.notes}"</p>}
+                  <p className="text-muted-foreground mt-0.5">
+                    {new Date(a.created_at).toLocaleString()}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Personal */}
       <div className="kyf-card p-5 space-y-4">

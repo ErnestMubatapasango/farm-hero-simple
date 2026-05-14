@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
-import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, Beef } from "lucide-react";
+import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, FileEdit, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface Farmer {
@@ -24,12 +24,16 @@ interface Farmer {
 }
 
 export default function AdminFarmers() {
-  const { organizationId, hasRole } = useAuth();
+  const { session, organizationId, hasRole, hasAnyRole } = useAuth();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+
+  // Enumerators (without admin powers) only see farmers they enrolled.
+  const enumeratorOnly =
+    hasRole("enumerator") && !hasAnyRole(["admin", "super_admin", "developer"]);
 
   useEffect(() => {
     async function load() {
@@ -43,12 +47,15 @@ export default function AdminFarmers() {
       if (!hasRole("developer")) {
         query = query.eq("organization_id", organizationId);
       }
+      if (enumeratorOnly && session?.user?.id) {
+        query = query.eq("enrolled_by", session.user.id);
+      }
       const { data } = await query;
       setFarmers((data as Farmer[]) || []);
       setLoading(false);
     }
     load();
-  }, [organizationId, hasRole]);
+  }, [organizationId, hasRole, enumeratorOnly, session?.user?.id]);
 
   const deriveType = (f: Farmer): "crop" | "livestock" | "mixed" | "none" => {
     const hasCrops = (f.primary_crops?.length || 0) > 0;
@@ -83,6 +90,10 @@ export default function AdminFarmers() {
         return <CheckCircle className="h-3.5 w-3.5 text-green-500" />;
       case "rejected":
         return <XCircle className="h-3.5 w-3.5 text-destructive" />;
+      case "submitted":
+        return <Send className="h-3.5 w-3.5 text-blue-500" />;
+      case "draft":
+        return <FileEdit className="h-3.5 w-3.5 text-muted-foreground" />;
       default:
         return <Clock className="h-3.5 w-3.5 text-yellow-500" />;
     }
@@ -90,7 +101,8 @@ export default function AdminFarmers() {
 
   const statusCounts = {
     all: farmers.length,
-    pending: farmers.filter((f) => f.status === "pending").length,
+    draft: farmers.filter((f) => f.status === "draft").length,
+    submitted: farmers.filter((f) => f.status === "submitted").length,
     verified: farmers.filter((f) => f.status === "verified").length,
     rejected: farmers.filter((f) => f.status === "rejected").length,
   };
@@ -129,7 +141,7 @@ export default function AdminFarmers() {
             />
           </div>
           <div className="flex rounded-lg bg-muted p-1 text-xs font-medium overflow-x-auto">
-            {(["all", "pending", "verified", "rejected"] as const).map((s) => (
+            {(["all", "draft", "submitted", "verified", "rejected"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}

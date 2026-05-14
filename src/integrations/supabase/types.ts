@@ -58,6 +58,45 @@ export type Database = {
           },
         ]
       }
+      farmer_activity_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          changes: Json | null
+          created_at: string
+          farmer_id: string
+          from_status: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          to_status: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          changes?: Json | null
+          created_at?: string
+          farmer_id: string
+          from_status?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          to_status?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          changes?: Json | null
+          created_at?: string
+          farmer_id?: string
+          from_status?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          to_status?: string | null
+        }
+        Relationships: []
+      }
       farmer_crops: {
         Row: {
           created_at: string
@@ -124,7 +163,9 @@ export type Database = {
           primary_livestock: string[] | null
           region: string | null
           status: string
+          submitted_at: string | null
           updated_at: string
+          updated_by: string | null
           verified_at: string | null
           verified_by: string | null
           village: string | null
@@ -154,7 +195,9 @@ export type Database = {
           primary_livestock?: string[] | null
           region?: string | null
           status?: string
+          submitted_at?: string | null
           updated_at?: string
+          updated_by?: string | null
           verified_at?: string | null
           verified_by?: string | null
           village?: string | null
@@ -184,7 +227,9 @@ export type Database = {
           primary_livestock?: string[] | null
           region?: string | null
           status?: string
+          submitted_at?: string | null
           updated_at?: string
+          updated_by?: string | null
           verified_at?: string | null
           verified_by?: string | null
           village?: string | null
@@ -399,6 +444,7 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      can_edit_farmer: { Args: { _farmer_id: string }; Returns: boolean }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_role:
         | {
