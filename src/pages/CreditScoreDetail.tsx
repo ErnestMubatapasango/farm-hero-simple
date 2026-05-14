@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeft, Gauge, RefreshCw, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,8 @@ function bandColor(score: number) {
 
 export default function CreditScoreDetail() {
   const { farmerId } = useParams<{ farmerId: string }>();
+  const { hasAnyRole } = useAuth();
+  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
   const { toast } = useToast();
   const [farmer, setFarmer] = useState<FarmerHead | null>(null);
   const [result, setResult] = useState<CreditScoreResult | null>(null);
@@ -64,6 +67,10 @@ export default function CreditScoreDetail() {
     toast({ title: "Score recomputed" });
     setRecomputing(false);
   };
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
   if (loading) {
     return (
