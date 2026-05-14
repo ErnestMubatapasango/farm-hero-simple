@@ -37,7 +37,7 @@ const mainNav = [
   { title: "My Profile", url: "/profile", icon: UserCircle },
   { title: "Documents", url: "/documents", icon: FileText },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Credit Score", url: "/credit-score", icon: Gauge },
+  { title: "Credit Score", url: "/credit-score", icon: Gauge, adminOnly: true },
 ];
 
 const adminNav = [
