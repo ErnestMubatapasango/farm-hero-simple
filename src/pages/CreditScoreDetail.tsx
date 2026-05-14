@@ -25,6 +25,8 @@ function bandColor(score: number) {
 
 export default function CreditScoreDetail() {
   const { farmerId } = useParams<{ farmerId: string }>();
+  const { hasAnyRole } = useAuth();
+  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
   const { toast } = useToast();
   const [farmer, setFarmer] = useState<FarmerHead | null>(null);
   const [result, setResult] = useState<CreditScoreResult | null>(null);
