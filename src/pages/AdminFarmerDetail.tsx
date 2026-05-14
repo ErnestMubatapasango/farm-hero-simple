@@ -15,6 +15,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Send,
+  FileEdit,
+  History,
+  Lock,
 } from "lucide-react";
 
 interface FarmerDetail {
@@ -42,6 +46,20 @@ interface FarmerDetail {
   notes: string | null;
   created_at: string;
   verified_at: string | null;
+  enrolled_by: string | null;
+  updated_by: string | null;
+  updated_at: string | null;
+  submitted_at: string | null;
+}
+
+interface ActivityRow {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  from_status: string | null;
+  to_status: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
 interface FarmerCrop {
