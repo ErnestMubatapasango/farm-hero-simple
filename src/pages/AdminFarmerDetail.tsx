@@ -60,13 +60,41 @@ interface YieldRow {
   revenue_usd: number | null;
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+function InfoRow({
+  label,
+  value,
+  capitalize,
+}: {
+  label: string;
+  value: React.ReactNode;
+  capitalize?: boolean;
+}) {
+  const isEmpty =
+    value === null || value === undefined || value === "" || (typeof value === "number" && Number.isNaN(value));
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-medium text-foreground">{value || "—"}</p>
+      <p
+        className={`text-sm font-medium text-foreground break-words ${
+          capitalize ? "capitalize" : ""
+        }`}
+      >
+        {isEmpty ? "—" : value}
+      </p>
     </div>
   );
+}
+
+function formatDate(value: string | null) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function formatNumber(value: number | null | undefined, suffix?: string) {
+  if (value === null || value === undefined) return null;
+  return suffix ? `${value.toLocaleString()} ${suffix}` : value.toLocaleString();
 }
 
 export default function AdminFarmerDetail() {
