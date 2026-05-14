@@ -1,119 +1,68 @@
 ## Goal
 
-Implement **scoped editable ownership** for farmer records: enumerators can only edit farmers they onboarded, only while in editable statuses (`draft` / `rejected`). Verified records become immutable to enumerators. Add workflow statuses, audit fields, and an activity log.
+Give enumerators a fast path to find farmers they onboarded and edit them via the same multi-step form they used at onboarding.
 
----
+## 1. Dashboard quick action (`src/pages/Dashboard.tsx`)
 
-## 1. Database changes (migration)
+- Add a new `QuickAction` card visible to enumerators: **"My Farmers"** → links to `/admin/farmers`, description "View & edit farmers you onboarded".
+- Show this card for `enumerator` role (admins already see "Review Farmers", so we can show this only when the user is an enumerator without admin powers — same gating used in `AdminFarmers`).
 
-### `farmers` table — add columns
+## 2. Edit button on each farmer row (`src/pages/AdminFarmers.tsx`)
 
-- `created_by uuid` — set to enumerator's `auth.uid()` on insert (mirrors `enrolled_by` but explicit for ownership semantics; we'll keep `enrolled_by` and treat `created_by` as the canonical ownership column going forward, defaulting backfill from `enrolled_by`).
-- `updated_by uuid` — last user who modified the record.
-- `submitted_at timestamptz` — when enumerator submitted for review.
+- For each row where the current user can edit the farmer (status is `draft` or `rejected` AND `enrolled_by === user.id`, OR user is admin/super_admin/developer), render a small pencil (`Pencil` from lucide-react) button next to the chevron.
+- Clicking the pencil navigates to `/admin/farmer/:id/edit` (use `e.preventDefault()` + `e.stopPropagation()` so the row link doesn't also fire).
+- Verified/submitted records owned by an enumerator who isn't admin → no pencil shown (edit is locked by RLS anyway, surface that in UI).
 
-### `farmers.status` — expand allowed values
+## 3. Reusable onboarding form + edit route
 
-Currently: `pending | verified | rejected`.
-New workflow:
+The current `src/pages/Onboarding.tsx` mixes UI and "create" logic. Refactor lightly so the same UI handles edit:
 
-- `draft` (default for new records)
-- `submitted` (enumerator finished, awaiting admin)
-- `under_review` (admin actively reviewing — optional, can defer)
-- `verified` (locked)
-- `rejected` (back to enumerator with notes)
+- **Extract** the form body + `FormState`/`emptyForm` into `src/components/onboarding/FarmerForm.tsx`. Props:
+  - `mode: "create" | "edit"`
+  - `initialData?: FormState`
+  - `farmerId?: string` (only in edit)
+  - Internal submit handler branches on `mode`.
+- **`Onboarding.tsx`** becomes a thin wrapper: `<FarmerForm mode="create" />`.
+- **New route** `src/pages/EditFarmer.tsx` mounted at `/admin/farmer/:id/edit` (wire it in `src/App.tsx` next to the existing `/admin/farmer/:id` route, gated by the same `ProtectedRoute`):
+  1. On mount, load:
+     - `farmers` row by id
+     - `farmer_crops` (ordered by `position`)
+     - `crop_yield_history` (current + previous year)
+  2. Map into `FormState` (primary/secondary crop from positions 1/2, `farmingMethods[crop]` from `farming_method`, `yieldHistory[crop_year]` from yield rows).
+  3. If user can't edit (status not in `draft`/`rejected` and not admin) → show a read-only banner + link back to detail page. Don't even render the form.
+  4. Render `<FarmerForm mode="edit" farmerId={id} initialData={mapped} />`.
 
-Change default from `'pending'` → `'draft'`. Backfill existing `pending` rows → `submitted`.
+## 4. Submit logic in edit mode
 
-### New table: `farmer_activity_log`
+Inside `FarmerForm.handleSubmit` when `mode === "edit"`:
 
-Columns:
+- `UPDATE farmers` SET all editable columns by `id = farmerId`. Do **not** touch `status`, `enrolled_by`, `organization_id`, `verified_*`, `submitted_at` — the audit trigger handles `updated_by`/`updated_at` and the activity log.
+- For crops: simplest correct approach — `DELETE FROM farmer_crops WHERE farmer_id = :id`, then `INSERT` the current selection (positions 1/2). RLS allows this because `can_edit_farmer()` is true for owners on draft/rejected and admins always.
+- For yield history: same pattern — `DELETE FROM crop_yield_history WHERE farmer_id = :id`, then re-insert the non-empty rows from the form.
+- Toast "Farmer updated" and navigate back to `/admin/farmer/:id`.
 
-- `id uuid pk`
-- `farmer_id uuid` (the farmer)
-- `organization_id uuid`
-- `actor_id uuid` (who did it)
-- `action text` (`created` | `updated` | `submitted` | `verified` | `rejected` | `status_changed`)
-- `from_status text`, `to_status text` (nullable, for status changes)
-- `changes jsonb` (nullable, diff of changed fields for updates)
-- `notes text` (nullable, admin rejection reason etc.)
-- `created_at timestamptz default now()`
+If anything fails after the farmers UPDATE we surface a toast — we do not attempt to roll back the farmer row (unlike create, which deletes the orphan farmer on failure) because the row already existed.
 
-RLS: org members can view; inserts allowed for authenticated users in the same org (the trigger writes them).
+## 5. Out of scope
 
-### Trigger: auto-log on `farmers` changes
+- No DB migration (RLS + triggers from the previous migration already cover this; `crop_yield_history` DELETE policy currently only allows super_admin — see note below).
+- No design changes beyond the new card and pencil icon.
 
-A `BEFORE UPDATE` trigger sets `updated_by = auth.uid()` and `updated_at = now()`.
-An `AFTER INSERT/UPDATE` trigger writes a row into `farmer_activity_log`.
+## Open question / heads-up
 
-### RLS rewrite for `farmers.UPDATE`
+The current `crop_yield_history` DELETE RLS policy only allows `super_admin` / `developer`. If we go with the delete-then-insert approach for yields, an enumerator editing their own draft farmer will hit a permission error on yields. Two options:
 
-Replace the current "admins can update farmers in their org" policy with **two** policies:
+1. **Recommended**: extend the DELETE policy to `can_edit_farmer(farmer_id)` (tiny migration).
+2. Alternative: do per-row upsert (`INSERT ... ON CONFLICT (farmer_id, crop, year) DO UPDATE`) and skip deletes — requires adding a unique constraint on `(farmer_id, crop, year)` (also a migration).
 
-1. **Enumerators can update own editable farmers**
-  ```
-   USING (
-     enrolled_by = auth.uid()
-     AND status IN ('draft', 'rejected')
-     AND has_role(auth.uid(), 'enumerator', organization_id)
-   )
-   WITH CHECK (
-     enrolled_by = auth.uid()
-     AND status IN ('draft', 'rejected', 'submitted')  -- can transition to submitted
-   )
-  ```
-2. **Admins/super_admins/developers can update any farmer in their org** (existing rule, unchanged).
+I'll go with option 1 unless you prefer option 2.
 
-### RLS for `farmer_crops` / `crop_yield_history`
+## Files touched
 
-Mirror the same rule: enumerators can only insert/update rows belonging to farmers they own where farmer status is `draft` or `rejected`. Use a security-definer helper `can_edit_farmer(_farmer_id uuid)` to avoid duplicating logic.
-
----
-
-## 2. Frontend changes
-
-### `src/pages/Onboarding.tsx`
-
-- Insert farmers with `status: 'draft'` (instead of relying on default `pending`).
-- Add a "Save draft" vs "Submit for review" choice at the end:
-  - "Save draft" → keeps `status = 'draft'`.
-  - "Submit" → sets `status = 'submitted'`, `submitted_at = now()`.
-- Set `created_by: user.id` explicitly.
-
-### `src/pages/AdminFarmers.tsx`
-
-- Update status filter tabs to: `all | draft | submitted | verified | rejected` (counts updated).
-- Status badge icons updated for new states.
-- For enumerators (non-admin), the existing org-scoped query naturally limits visibility, but add `.eq('enrolled_by', user.id)` when the current user has only the `enumerator` role (no admin/super_admin) to enforce "see only own farmers" client-side as well.
-
-### `src/pages/AdminFarmerDetail.tsx`
-
-- Show status prominently with a badge.
-- Show "Last updated by … at …" and a collapsible **Activity timeline** sourced from `farmer_activity_log`.
-- Action buttons depend on role + status:
-  - Enumerator + status `draft|rejected` → "Edit" + "Submit for review".
-  - Admin/super_admin + status `submitted` → "Verify" + "Reject (with notes)".
-  - Anyone viewing `verified` → read-only banner ("Locked — verified record").
-- Reject flow: prompt for notes, write to `farmers.notes` and `farmer_activity_log.notes`.
-
-### New: edit page for farmers
-
-Reuse onboarding form in "edit mode" at `/admin/farmer/:id/edit`, gated to editable status + ownership. Pre-fills from existing farmer record.
-
----
-
-## 3. Out of scope (confirm or defer)
-
-- `under_review` intermediate state — **defer** unless you want admins to "claim" a record before verifying. Simpler 4-state workflow (`draft → submitted → verified|rejected`) is enough for MVP.
-- Soft-delete for farmers — currently only super_admin can delete. Leave as-is.
-- Per-field diff in activity log — start with full `changes jsonb` snapshot of changed columns; refine later.
-
----
-
-## Questions before I implement
-
-1. **Workflow states**: 4-state (`draft / submitted / verified / rejected`) or 5-state (add `under_review`)? I recommend 4-state for MVP.
-2. `**created_by` vs `enrolled_by**`: keep both (enrolled_by = ownership, created_by = redundant) or rename? I recommend **keeping `enrolled_by**` as the ownership column and NOT adding `created_by` — it already exists and serves the same purpose. Just add `updated_by` and `submitted_at`.
-3. **Edit UI**: reuse the onboarding form as `/admin/farmer/:id/edit`, or build a dedicated inline-edit panel on the detail page?
-4. **Activity log scope**: log every field change, or only status transitions + a "record edited" event for MVP?  
-  
+- `src/pages/Dashboard.tsx` — add quick action
+- `src/pages/AdminFarmers.tsx` — pencil button on rows
+- `src/components/onboarding/FarmerForm.tsx` — new (extracted from Onboarding)
+- `src/pages/Onboarding.tsx` — thin wrapper
+- `src/pages/EditFarmer.tsx` — new
+- `src/App.tsx` — register `/admin/farmer/:id/edit`
+- `supabase/migrations/...` — extend `crop_yield_history` DELETE policy (option 1)
