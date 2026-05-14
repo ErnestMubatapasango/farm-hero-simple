@@ -142,7 +142,7 @@ export default function AdminFarmers() {
             ))}
           </div>
         </div>
-        <div className="flex rounded-lg bg-muted p-1 text-xs font-medium w-fit overflow-x-auto">
+        {/* <div className="flex rounded-lg bg-muted p-1 text-xs font-medium w-fit overflow-x-auto">
           {(["all", "crop", "livestock", "mixed"] as const).map((t) => (
             <button
               key={t}
@@ -154,7 +154,7 @@ export default function AdminFarmers() {
               {t} ({typeCounts[t]})
             </button>
           ))}
-        </div>
+        </div> */}
       </div>
 
       {/* List */}
