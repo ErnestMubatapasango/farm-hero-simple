@@ -20,6 +20,7 @@ interface Farmer {
   primary_crops: string[] | null;
   primary_livestock: string[] | null;
   status: string;
+  enrolled_by: string;
   created_at: string;
 }
 
@@ -41,7 +42,7 @@ export default function AdminFarmers() {
       let query = supabase
         .from("farmers")
         .select(
-          "id, first_name, last_name, phone, region, district, ward, village, farm_name, farm_size_hectares, primary_crops, primary_livestock, status, created_at"
+          "id, first_name, last_name, phone, region, district, ward, village, farm_name, farm_size_hectares, primary_crops, primary_livestock, status, enrolled_by, created_at"
         )
         .order("created_at", { ascending: false });
       if (!hasRole("developer")) {
