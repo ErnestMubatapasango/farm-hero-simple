@@ -16,7 +16,7 @@ interface Farmer {
   village: string | null;
   farm_name: string | null;
   farm_size_hectares: number | null;
-  farming_type: string | null;
+  
   primary_crops: string[] | null;
   primary_livestock: string[] | null;
   status: string;
@@ -37,7 +37,7 @@ export default function AdminFarmers() {
       let query = supabase
         .from("farmers")
         .select(
-          "id, first_name, last_name, phone, region, district, ward, village, farm_name, farm_size_hectares, farming_type, primary_crops, primary_livestock, status, created_at"
+          "id, first_name, last_name, phone, region, district, ward, village, farm_name, farm_size_hectares, primary_crops, primary_livestock, status, created_at"
         )
         .order("created_at", { ascending: false });
       if (!hasRole("developer")) {
@@ -49,6 +49,15 @@ export default function AdminFarmers() {
     }
     load();
   }, [organizationId, hasRole]);
+
+  const deriveType = (f: Farmer): "crop" | "livestock" | "mixed" | "none" => {
+    const hasCrops = (f.primary_crops?.length || 0) > 0;
+    const hasLivestock = (f.primary_livestock?.length || 0) > 0;
+    if (hasCrops && hasLivestock) return "mixed";
+    if (hasLivestock) return "livestock";
+    if (hasCrops) return "crop";
+    return "none";
+  };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -63,7 +72,7 @@ export default function AdminFarmers() {
         f.village?.toLowerCase().includes(q) ||
         f.primary_crops?.some((c) => c.toLowerCase().includes(q));
       const matchesStatus = statusFilter === "all" || f.status === statusFilter;
-      const matchesType = typeFilter === "all" || f.farming_type === typeFilter;
+      const matchesType = typeFilter === "all" || deriveType(f) === typeFilter;
       return matchesSearch && matchesStatus && matchesType;
     });
   }, [farmers, search, statusFilter, typeFilter]);
@@ -87,9 +96,9 @@ export default function AdminFarmers() {
   };
   const typeCounts = {
     all: farmers.length,
-    crop: farmers.filter((f) => f.farming_type === "crop").length,
-    livestock: farmers.filter((f) => f.farming_type === "livestock").length,
-    mixed: farmers.filter((f) => f.farming_type === "mixed").length,
+    crop: farmers.filter((f) => deriveType(f) === "crop").length,
+    livestock: farmers.filter((f) => deriveType(f) === "livestock").length,
+    mixed: farmers.filter((f) => deriveType(f) === "mixed").length,
   };
 
   if (loading) {
@@ -157,7 +166,7 @@ export default function AdminFarmers() {
             const farmBits = [
               f.farm_name,
               f.farm_size_hectares != null ? `${f.farm_size_hectares} ha` : null,
-              f.farming_type,
+              deriveType(f) !== "none" ? deriveType(f) : null,
             ].filter(Boolean);
             const locationBits = [f.region, f.district, f.ward, f.village].filter(Boolean);
             const crops = f.primary_crops || [];
