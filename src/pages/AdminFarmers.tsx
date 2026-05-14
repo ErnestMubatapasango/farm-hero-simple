@@ -90,6 +90,10 @@ export default function AdminFarmers() {
         return <CheckCircle className="h-3.5 w-3.5 text-green-500" />;
       case "rejected":
         return <XCircle className="h-3.5 w-3.5 text-destructive" />;
+      case "submitted":
+        return <Send className="h-3.5 w-3.5 text-blue-500" />;
+      case "draft":
+        return <FileEdit className="h-3.5 w-3.5 text-muted-foreground" />;
       default:
         return <Clock className="h-3.5 w-3.5 text-yellow-500" />;
     }
@@ -97,7 +101,8 @@ export default function AdminFarmers() {
 
   const statusCounts = {
     all: farmers.length,
-    pending: farmers.filter((f) => f.status === "pending").length,
+    draft: farmers.filter((f) => f.status === "draft").length,
+    submitted: farmers.filter((f) => f.status === "submitted").length,
     verified: farmers.filter((f) => f.status === "verified").length,
     rejected: farmers.filter((f) => f.status === "rejected").length,
   };
