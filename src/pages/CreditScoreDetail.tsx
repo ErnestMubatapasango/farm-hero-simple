@@ -68,6 +68,10 @@ export default function CreditScoreDetail() {
     setRecomputing(false);
   };
 
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
