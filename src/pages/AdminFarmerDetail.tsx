@@ -117,15 +117,32 @@ function formatNumber(value: number | null | undefined, suffix?: string) {
 export default function AdminFarmerDetail() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const { session, hasAnyRole } = useAuth();
+  const { session, hasAnyRole, hasRole } = useAuth();
   const { toast } = useToast();
   const [farmer, setFarmer] = useState<FarmerDetail | null>(null);
   const [crops, setCrops] = useState<FarmerCrop[]>([]);
   const [yields, setYields] = useState<YieldRow[]>([]);
+  const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
 
-  const canVerify = hasAnyRole(["admin", "super_admin", "developer"]);
+  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+  const isOwner = !!session?.user?.id && farmer?.enrolled_by === session.user.id;
+  const editableStatus = farmer?.status === "draft" || farmer?.status === "rejected";
+  const canEdit = isAdmin || (hasRole("enumerator") && isOwner && editableStatus);
+  const canSubmit = isOwner && editableStatus;
+  const canVerifyOrReject = isAdmin && farmer?.status === "submitted";
+  const isLocked = farmer?.status === "verified";
+
+  const loadActivity = async (farmerId: string) => {
+    const { data } = await supabase
+      .from("farmer_activity_log")
+      .select("id, actor_id, action, from_status, to_status, notes, created_at")
+      .eq("farmer_id", farmerId)
+      .order("created_at", { ascending: false });
+    setActivity((data as ActivityRow[]) || []);
+  };
 
   useEffect(() => {
     if (!userId) return;
@@ -150,6 +167,7 @@ export default function AdminFarmerDetail() {
       setFarmer((farmerRes.data as FarmerDetail | null) ?? null);
       setCrops((cropsRes.data as FarmerCrop[]) || []);
       setYields((yieldRes.data as YieldRow[]) || []);
+      await loadActivity(userId);
       setLoading(false);
     })();
     return () => {
@@ -167,23 +185,61 @@ export default function AdminFarmerDetail() {
     return map;
   }, [yields]);
 
-  const updateStatus = async (status: "verified" | "rejected") => {
+  const submitForReview = async () => {
+    if (!farmer) return;
+    setUpdating(true);
+    const { error } = await supabase
+      .from("farmers")
+      .update({ status: "submitted", submitted_at: new Date().toISOString() })
+      .eq("id", farmer.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Submitted for review" });
+      setFarmer((prev) => (prev ? { ...prev, status: "submitted" } : prev));
+      await loadActivity(farmer.id);
+    }
+    setUpdating(false);
+  };
+
+  const verify = async () => {
     if (!farmer || !session?.user?.id) return;
     setUpdating(true);
     const { error } = await supabase
       .from("farmers")
       .update({
-        status,
+        status: "verified",
         verified_by: session.user.id,
         verified_at: new Date().toISOString(),
       })
       .eq("id", farmer.id);
-
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `Farmer ${status}` });
-      setFarmer((prev) => (prev ? { ...prev, status, verified_at: new Date().toISOString() } : prev));
+      toast({ title: "Farmer verified" });
+      setFarmer((prev) =>
+        prev ? { ...prev, status: "verified", verified_at: new Date().toISOString() } : prev
+      );
+      await loadActivity(farmer.id);
+    }
+    setUpdating(false);
+  };
+
+  const reject = async () => {
+    if (!farmer) return;
+    const note = window.prompt("Rejection reason (will be visible to enumerator):", farmer.notes || "");
+    if (note === null) return;
+    setUpdating(true);
+    const { error } = await supabase
+      .from("farmers")
+      .update({ status: "rejected", notes: note || null })
+      .eq("id", farmer.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Farmer rejected" });
+      setFarmer((prev) => (prev ? { ...prev, status: "rejected", notes: note || null } : prev));
+      await loadActivity(farmer.id);
     }
     setUpdating(false);
   };
@@ -207,6 +263,8 @@ export default function AdminFarmerDetail() {
   const statusConfig = {
     verified: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/10" },
     rejected: { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10" },
+    submitted: { icon: Send, color: "text-blue-500", bg: "bg-blue-500/10" },
+    draft: { icon: FileEdit, color: "text-muted-foreground", bg: "bg-muted" },
     pending: { icon: Clock, color: "text-yellow-500", bg: "bg-yellow-500/10" },
   };
   const sc = statusConfig[farmer.status as keyof typeof statusConfig] || statusConfig.pending;
