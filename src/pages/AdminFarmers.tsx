@@ -11,7 +11,7 @@ interface Farmer {
   last_name: string;
   phone: string | null;
   region: string | null;
-  sub_county: string | null;
+  district: string | null;
   ward: string | null;
   village: string | null;
   farm_name: string | null;
@@ -37,7 +37,7 @@ export default function AdminFarmers() {
       let query = supabase
         .from("farmers")
         .select(
-          "id, first_name, last_name, phone, region, sub_county, ward, village, farm_name, farm_size_hectares, farming_type, primary_crops, primary_livestock, status, created_at"
+          "id, first_name, last_name, phone, region, district, ward, village, farm_name, farm_size_hectares, farming_type, primary_crops, primary_livestock, status, created_at"
         )
         .order("created_at", { ascending: false });
       if (!hasRole("developer")) {
@@ -159,7 +159,7 @@ export default function AdminFarmers() {
               f.farm_size_hectares != null ? `${f.farm_size_hectares} ha` : null,
               f.farming_type,
             ].filter(Boolean);
-            const locationBits = [f.region, f.sub_county, f.ward, f.village].filter(Boolean);
+            const locationBits = [f.region, f.district, f.ward, f.village].filter(Boolean);
             const crops = f.primary_crops || [];
             const extraCrops = crops.length > 2 ? crops.length - 2 : 0;
             return (
