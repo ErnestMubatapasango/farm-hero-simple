@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, FileEdit, Send, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -26,6 +26,7 @@ interface Farmer {
 
 export default function AdminFarmers() {
   const { session, organizationId, hasRole, hasAnyRole } = useAuth();
+  const navigate = useNavigate();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -238,15 +239,19 @@ export default function AdminFarmers() {
                   {(hasAnyRole(["admin", "super_admin", "developer"]) ||
                     (f.enrolled_by === session?.user?.id &&
                       (f.status === "draft" || f.status === "rejected"))) && (
-                    <Link
-                      to={`/admin/farmer/${f.id}/edit`}
-                      onClick={(e) => e.stopPropagation()}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigate(`/admin/farmer/${f.id}/edit`);
+                      }}
                       className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                       aria-label="Edit farmer"
                       title="Edit"
                     >
                       <Pencil className="h-3.5 w-3.5" />
-                    </Link>
+                    </button>
                   )}
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
