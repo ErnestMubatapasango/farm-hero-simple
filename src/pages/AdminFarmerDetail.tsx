@@ -297,27 +297,89 @@ export default function AdminFarmerDetail() {
         </div>
       </div>
 
-      {/* Verification actions */}
-      {canVerify && farmer.status === "pending" && (
-        <div className="flex gap-3">
-          <button
-            onClick={() => updateStatus("verified")}
-            disabled={updating}
-            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            <CheckCircle className="h-4 w-4" />
-            Verify Farmer
-          </button>
-          <button
-            onClick={() => updateStatus("rejected")}
-            disabled={updating}
-            className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
-          >
-            <XCircle className="h-4 w-4" />
-            Reject
-          </button>
+      {/* Locked banner */}
+      {isLocked && (
+        <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-2.5 text-sm text-green-700 dark:text-green-400">
+          <Lock className="h-4 w-4" />
+          This record is verified and locked. Edits are no longer allowed.
         </div>
       )}
+
+      {/* Workflow actions */}
+      <div className="flex flex-wrap gap-3">
+        {canSubmit && (
+          <button
+            onClick={submitForReview}
+            disabled={updating}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
+          >
+            <Send className="h-4 w-4" />
+            Submit for Review
+          </button>
+        )}
+        {canVerifyOrReject && (
+          <>
+            <button
+              onClick={verify}
+              disabled={updating}
+              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              <CheckCircle className="h-4 w-4" />
+              Verify Farmer
+            </button>
+            <button
+              onClick={reject}
+              disabled={updating}
+              className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
+            >
+              <XCircle className="h-4 w-4" />
+              Reject
+            </button>
+          </>
+        )}
+        {canEdit && !isLocked && (
+          <span className="text-xs text-muted-foreground self-center">
+            Editing UI coming soon — for now use the onboarding flow.
+          </span>
+        )}
+      </div>
+
+      {/* Activity log */}
+      <div className="kyf-card p-5 space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowActivity((v) => !v)}
+          className="flex items-center gap-2 text-sm font-semibold text-foreground w-full"
+        >
+          <History className="h-4 w-4 text-primary" />
+          Activity ({activity.length})
+          <span className="ml-auto text-xs text-muted-foreground">
+            {showActivity ? "Hide" : "Show"}
+          </span>
+        </button>
+        {showActivity && (
+          <div className="space-y-2">
+            {activity.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No activity recorded.</p>
+            ) : (
+              activity.map((a) => (
+                <div key={a.id} className="text-xs border-l-2 border-border pl-3 py-1">
+                  <p className="text-foreground capitalize">
+                    {a.action.replace(/_/g, " ")}
+                    {a.from_status && a.to_status && (
+                      <span className="text-muted-foreground"> — {a.from_status} → {a.to_status}</span>
+                    )}
+                  </p>
+                  {a.notes && <p className="text-muted-foreground mt-0.5">"{a.notes}"</p>}
+                  <p className="text-muted-foreground mt-0.5">
+                    {new Date(a.created_at).toLocaleString()}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Personal */}
       <div className="kyf-card p-5 space-y-4">
