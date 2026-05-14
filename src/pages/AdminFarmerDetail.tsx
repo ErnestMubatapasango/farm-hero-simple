@@ -281,8 +281,8 @@ export default function AdminFarmerDetail() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <InfoRow label="Farm Name" value={farmer.farm_name} />
-          <InfoRow label="Size (hectares)" value={farmer.farm_size_hectares?.toString()} />
-          <InfoRow label="Type" value={farmer.farming_type} />
+          <InfoRow label="Size" value={formatNumber(farmer.farm_size_hectares, "ha")} />
+          <InfoRow label="Type" value={farmer.farming_type} capitalize />
         </div>
 
         {/* Crops with farming methods */}
