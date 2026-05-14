@@ -173,6 +173,7 @@ export default function Onboarding() {
         bank_name: form.bank_name || null,
         mobile_money_provider: form.mobile_money_provider || null,
         notes: form.notes || null,
+        status: "draft",
       })
       .select("id")
       .single();
