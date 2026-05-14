@@ -267,7 +267,7 @@ export default function AdminFarmerDetail() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <InfoRow label="Region" value={farmer.region} />
-          <InfoRow label="Sub-County" value={farmer.district} />
+          <InfoRow label="District" value={farmer.district} />
           <InfoRow label="Ward" value={farmer.ward} />
           <InfoRow label="Village" value={farmer.village} />
         </div>
