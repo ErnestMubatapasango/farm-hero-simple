@@ -14,6 +14,7 @@ import Profile from "./pages/Profile";
 import Documents from "./pages/Documents";
 import Analytics from "./pages/Analytics";
 import CreditScore from "./pages/CreditScore";
+import CreditScoreDetail from "./pages/CreditScoreDetail";
 import Admin from "./pages/Admin";
 import AdminFarmerDetail from "./pages/AdminFarmerDetail";
 import AdminFarmers from "./pages/AdminFarmers";
@@ -50,6 +51,7 @@ const App = () => (
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/credit-score" element={<CreditScore />} />
+                <Route path="/credit-score/:farmerId" element={<CreditScoreDetail />} />
                 <Route path="/admin/farmers" element={<AdminFarmers />} />
                 <Route path="/admin/farmer/:userId" element={<AdminFarmerDetail />} />
                 <Route path="/admin/farmer/:userId/edit" element={<EditFarmer />} />

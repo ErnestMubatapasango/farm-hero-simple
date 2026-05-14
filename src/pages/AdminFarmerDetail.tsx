@@ -20,6 +20,7 @@ import {
   History,
   Lock,
 } from "lucide-react";
+import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
 
 interface FarmerDetail {
   id: string;
@@ -529,6 +530,14 @@ export default function AdminFarmerDetail() {
           <InfoRow label="Mobile Money" value={farmer.mobile_money_provider} capitalize />
         </div>
       </div>
+
+      {/* Documents */}
+      <FarmerDocumentsSection
+        farmerId={farmer.id}
+        organizationId={(farmer as any).organization_id ?? ""}
+        canEdit={canEdit && !isLocked}
+        isAdmin={isAdmin}
+      />
 
       {/* Notes */}
       {farmer.notes && (

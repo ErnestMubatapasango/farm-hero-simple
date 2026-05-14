@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_scores: {
+        Row: {
+          band: string
+          breakdown: Json
+          computed_at: string
+          computed_by: string | null
+          created_at: string
+          farmer_id: string
+          id: string
+          inputs_hash: string | null
+          organization_id: string
+          recommendations: Json
+          score: number
+          updated_at: string
+        }
+        Insert: {
+          band: string
+          breakdown?: Json
+          computed_at?: string
+          computed_by?: string | null
+          created_at?: string
+          farmer_id: string
+          id?: string
+          inputs_hash?: string | null
+          organization_id: string
+          recommendations?: Json
+          score: number
+          updated_at?: string
+        }
+        Update: {
+          band?: string
+          breakdown?: Json
+          computed_at?: string
+          computed_by?: string | null
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          inputs_hash?: string | null
+          organization_id?: string
+          recommendations?: Json
+          score?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       crop_yield_history: {
         Row: {
           created_at: string
@@ -137,6 +182,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      farmer_documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          farmer_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          notes: string | null
+          organization_id: string
+          status: string
+          updated_at: string
+          uploaded_by: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          farmer_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          organization_id: string
+          status?: string
+          updated_at?: string
+          uploaded_by: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          farmer_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          organization_id?: string
+          status?: string
+          updated_at?: string
+          uploaded_by?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: []
       }
       farmers: {
         Row: {
