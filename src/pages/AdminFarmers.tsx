@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Link } from "react-router-dom";
-import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, Beef } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, FileEdit, Send, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface Farmer {
@@ -20,16 +20,22 @@ interface Farmer {
   primary_crops: string[] | null;
   primary_livestock: string[] | null;
   status: string;
+  enrolled_by: string;
   created_at: string;
 }
 
 export default function AdminFarmers() {
-  const { organizationId, hasRole } = useAuth();
+  const { session, organizationId, hasRole, hasAnyRole } = useAuth();
+  const navigate = useNavigate();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+
+  // Enumerators (without admin powers) only see farmers they enrolled.
+  const enumeratorOnly =
+    hasRole("enumerator") && !hasAnyRole(["admin", "super_admin", "developer"]);
 
   useEffect(() => {
     async function load() {
@@ -37,18 +43,21 @@ export default function AdminFarmers() {
       let query = supabase
         .from("farmers")
         .select(
-          "id, first_name, last_name, phone, region, district, ward, village, farm_name, farm_size_hectares, primary_crops, primary_livestock, status, created_at"
+          "id, first_name, last_name, phone, region, district, ward, village, farm_name, farm_size_hectares, primary_crops, primary_livestock, status, enrolled_by, created_at"
         )
         .order("created_at", { ascending: false });
       if (!hasRole("developer")) {
         query = query.eq("organization_id", organizationId);
+      }
+      if (enumeratorOnly && session?.user?.id) {
+        query = query.eq("enrolled_by", session.user.id);
       }
       const { data } = await query;
       setFarmers((data as Farmer[]) || []);
       setLoading(false);
     }
     load();
-  }, [organizationId, hasRole]);
+  }, [organizationId, hasRole, enumeratorOnly, session?.user?.id]);
 
   const deriveType = (f: Farmer): "crop" | "livestock" | "mixed" | "none" => {
     const hasCrops = (f.primary_crops?.length || 0) > 0;
@@ -83,6 +92,10 @@ export default function AdminFarmers() {
         return <CheckCircle className="h-3.5 w-3.5 text-green-500" />;
       case "rejected":
         return <XCircle className="h-3.5 w-3.5 text-destructive" />;
+      case "submitted":
+        return <Send className="h-3.5 w-3.5 text-blue-500" />;
+      case "draft":
+        return <FileEdit className="h-3.5 w-3.5 text-muted-foreground" />;
       default:
         return <Clock className="h-3.5 w-3.5 text-yellow-500" />;
     }
@@ -90,7 +103,8 @@ export default function AdminFarmers() {
 
   const statusCounts = {
     all: farmers.length,
-    pending: farmers.filter((f) => f.status === "pending").length,
+    draft: farmers.filter((f) => f.status === "draft").length,
+    submitted: farmers.filter((f) => f.status === "submitted").length,
     verified: farmers.filter((f) => f.status === "verified").length,
     rejected: farmers.filter((f) => f.status === "rejected").length,
   };
@@ -129,7 +143,7 @@ export default function AdminFarmers() {
             />
           </div>
           <div className="flex rounded-lg bg-muted p-1 text-xs font-medium overflow-x-auto">
-            {(["all", "pending", "verified", "rejected"] as const).map((s) => (
+            {(["all", "draft", "submitted", "verified", "rejected"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
@@ -222,6 +236,23 @@ export default function AdminFarmers() {
                     {statusIcon(f.status)}
                     {f.status}
                   </span>
+                  {(hasAnyRole(["admin", "super_admin", "developer"]) ||
+                    (f.enrolled_by === session?.user?.id &&
+                      (f.status === "draft" || f.status === "rejected"))) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigate(`/admin/farmer/${f.id}/edit`);
+                      }}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      aria-label="Edit farmer"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </Link>
