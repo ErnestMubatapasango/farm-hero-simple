@@ -235,6 +235,19 @@ export default function AdminFarmers() {
                     {statusIcon(f.status)}
                     {f.status}
                   </span>
+                  {(hasAnyRole(["admin", "super_admin", "developer"]) ||
+                    (f.enrolled_by === session?.user?.id &&
+                      (f.status === "draft" || f.status === "rejected"))) && (
+                    <Link
+                      to={`/admin/farmer/${f.id}/edit`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      aria-label="Edit farmer"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Link>
+                  )}
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </Link>
