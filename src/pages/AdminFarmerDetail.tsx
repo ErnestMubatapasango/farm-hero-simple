@@ -390,7 +390,7 @@ export default function AdminFarmerDetail() {
             label="Bank Account"
             value={farmer.has_bank_account ? `Yes — ${farmer.bank_name || "Unknown"}` : "No"}
           />
-          <InfoRow label="Mobile Money" value={farmer.mobile_money_provider} />
+          <InfoRow label="Mobile Money" value={farmer.mobile_money_provider} capitalize />
         </div>
       </div>
 
