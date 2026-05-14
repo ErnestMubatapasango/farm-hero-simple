@@ -166,7 +166,7 @@ export default function AdminFarmers() {
             const farmBits = [
               f.farm_name,
               f.farm_size_hectares != null ? `${f.farm_size_hectares} ha` : null,
-              f.farming_type,
+              deriveType(f) !== "none" ? deriveType(f) : null,
             ].filter(Boolean);
             const locationBits = [f.region, f.district, f.ward, f.village].filter(Boolean);
             const crops = f.primary_crops || [];
