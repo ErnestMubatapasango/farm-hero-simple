@@ -48,7 +48,7 @@ interface FormState {
   national_id: string;
   // farm
   region: string;
-  sub_county: string;
+  district: string;
   ward: string;
   village: string;
   farm_name: string;
@@ -74,7 +74,7 @@ const emptyForm: FormState = {
   gender: "",
   national_id: "",
   region: "",
-  sub_county: "",
+  district: "",
   ward: "",
   village: "",
   farm_name: "",
@@ -166,7 +166,7 @@ export default function Onboarding() {
         gender: form.gender || null,
         national_id: form.national_id || null,
         region: form.region || null,
-        sub_county: form.sub_county || null,
+        district: form.district || null,
         ward: form.ward || null,
         village: form.village || null,
         farm_name: form.farm_name || null,
@@ -360,7 +360,7 @@ export default function Onboarding() {
               </div>
               <div className="space-y-1.5">
                 <Label>District / Sub-County</Label>
-                <Input value={form.sub_county} onChange={(e) => update("sub_county", e.target.value)} placeholder="District name" />
+                <Input value={form.district} onChange={(e) => update("district", e.target.value)} placeholder="District name" />
               </div>
               <div className="space-y-1.5">
                 <Label>Ward</Label>

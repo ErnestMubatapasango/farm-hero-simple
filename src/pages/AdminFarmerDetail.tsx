@@ -27,7 +27,7 @@ interface FarmerDetail {
   gender: string | null;
   national_id: string | null;
   region: string | null;
-  sub_county: string | null;
+  district: string | null;
   ward: string | null;
   village: string | null;
   farm_name: string | null;
@@ -267,7 +267,7 @@ export default function AdminFarmerDetail() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <InfoRow label="Region" value={farmer.region} />
-          <InfoRow label="Sub-County" value={farmer.sub_county} />
+          <InfoRow label="District" value={farmer.district} />
           <InfoRow label="Ward" value={farmer.ward} />
           <InfoRow label="Village" value={farmer.village} />
         </div>
