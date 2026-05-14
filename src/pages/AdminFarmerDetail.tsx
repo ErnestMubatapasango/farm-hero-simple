@@ -32,7 +32,6 @@ interface FarmerDetail {
   village: string | null;
   farm_name: string | null;
   farm_size_hectares: number | null;
-  farming_type: string | null;
   primary_crops: string[] | null;
   primary_livestock: string[] | null;
   annual_income: number | null;
@@ -282,7 +281,6 @@ export default function AdminFarmerDetail() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <InfoRow label="Farm Name" value={farmer.farm_name} />
           <InfoRow label="Size" value={formatNumber(farmer.farm_size_hectares, "ha")} />
-          <InfoRow label="Type" value={farmer.farming_type} capitalize />
         </div>
 
         {/* Crops with farming methods */}
