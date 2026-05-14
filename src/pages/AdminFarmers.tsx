@@ -24,12 +24,16 @@ interface Farmer {
 }
 
 export default function AdminFarmers() {
-  const { organizationId, hasRole } = useAuth();
+  const { session, organizationId, hasRole, hasAnyRole } = useAuth();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+
+  // Enumerators (without admin powers) only see farmers they enrolled.
+  const enumeratorOnly =
+    hasRole("enumerator") && !hasAnyRole(["admin", "super_admin", "developer"]);
 
   useEffect(() => {
     async function load() {
@@ -43,12 +47,15 @@ export default function AdminFarmers() {
       if (!hasRole("developer")) {
         query = query.eq("organization_id", organizationId);
       }
+      if (enumeratorOnly && session?.user?.id) {
+        query = query.eq("enrolled_by", session.user.id);
+      }
       const { data } = await query;
       setFarmers((data as Farmer[]) || []);
       setLoading(false);
     }
     load();
-  }, [organizationId, hasRole]);
+  }, [organizationId, hasRole, enumeratorOnly, session?.user?.id]);
 
   const deriveType = (f: Farmer): "crop" | "livestock" | "mixed" | "none" => {
     const hasCrops = (f.primary_crops?.length || 0) > 0;
