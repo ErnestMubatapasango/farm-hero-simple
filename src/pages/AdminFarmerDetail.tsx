@@ -253,8 +253,8 @@ export default function AdminFarmerDetail() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <InfoRow label="Phone" value={farmer.phone} />
           <InfoRow label="Email" value={farmer.email} />
-          <InfoRow label="Date of Birth" value={farmer.date_of_birth} />
-          <InfoRow label="Gender" value={farmer.gender} />
+          <InfoRow label="Date of Birth" value={formatDate(farmer.date_of_birth)} />
+          <InfoRow label="Gender" value={farmer.gender} capitalize />
           <InfoRow label="National ID" value={farmer.national_id} />
         </div>
       </div>
