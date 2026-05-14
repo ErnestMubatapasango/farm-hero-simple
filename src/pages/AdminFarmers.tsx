@@ -214,9 +214,9 @@ export default function AdminFarmers() {
                         +{extraCrops}
                       </span>
                     )}
-                    {(f.primary_livestock?.length || 0) > 0 && (
+                    {/* {(f.primary_livestock?.length || 0) > 0 && (
                       <Beef className="h-3.5 w-3.5 text-muted-foreground" aria-label="Has livestock" />
-                    )}
+                    )} */}
                   </div>
                   <span className="flex items-center gap-1 text-xs capitalize">
                     {statusIcon(f.status)}
