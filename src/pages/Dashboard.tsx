@@ -68,7 +68,7 @@ export default function Dashboard() {
 
       setStats({
         totalFarmers: farmers.length,
-        pendingFarmers: farmers.filter((f) => f.status === "pending").length,
+        pendingFarmers: farmers.filter((f) => f.status === "submitted").length,
         verifiedFarmers: farmers.filter((f) => f.status === "verified").length,
         rejectedFarmers: farmers.filter((f) => f.status === "rejected").length,
         totalUsers: usersCount,
