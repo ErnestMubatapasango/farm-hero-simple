@@ -1,31 +1,22 @@
-## Goal
-Restrict credit score access to admin, super_admin, and developer roles only. Enumerators must not see scores anywhere.
+## Problem
 
-## Changes
+On the dashboard, the "Pending Review" card filters farmers by `status === "pending"`, but that status doesn't exist in the schema. Valid farmer statuses are `draft`, `submitted`, `verified`, `rejected`. As a result the card always shows `0` for everyone — including enumerators, who should see how many of the farmers they've enrolled are awaiting admin review.
 
-### 1. Database (migration)
-Tighten RLS on `credit_scores` — replace the org-wide SELECT/INSERT/UPDATE policies so enumerators are excluded:
+## Fix
 
-- **SELECT**: `has_role(auth.uid(), 'admin', organization_id) OR has_role(auth.uid(), 'super_admin', organization_id) OR has_role(auth.uid(), 'developer')`
-- **INSERT / UPDATE**: same predicate (only admins+ can compute/recompute)
-- **DELETE**: unchanged (super_admin/developer)
+In `src/pages/Dashboard.tsx`, change the `pendingFarmers` calculation to count farmers with `status === "submitted"` (i.e. submitted for review, not yet verified or rejected).
 
-### 2. Frontend route guard
-- `/credit-score` and `/credit-score/:farmerId`: redirect enumerators away (e.g. to `/dashboard`) with a toast. Use existing role check pattern from `AdminFarmers`/`AdminFarmerDetail`.
+That single change makes the card meaningful for both audiences:
+- **Enumerator**: number of their enrolled farmers waiting on admin review.
+- **Admin / super_admin / developer**: number of farmers in their org awaiting review action.
 
-### 3. Navigation
-- Hide the "Credit Score" nav item from enumerators in the sidebar/nav component.
+The existing org-scoping logic (enumerators only see their org's farmers via RLS, and the query already filters by `organization_id`) already produces the correct rows — only the status filter is wrong.
 
-### 4. Farmer detail page
-- Hide any credit score widget/link on `AdminFarmerDetail` (and any farmer detail surface) when the viewer is an enumerator.
+No other changes: the `QuickAction` description "X pending review" already reads from `stats.pendingFarmers`, so it updates automatically. No DB / RLS / route changes needed.
 
 ## Out of scope
-- No changes to scoring algorithm or `credit-score-service.ts` logic.
-- No changes to `farmer_documents` access (enumerators keep upload access per existing RLS).
-- No UI redesign.
+- No change to the credit-score work from earlier turns.
+- No new "draft" counter; if you want one later (farmers an enumerator hasn't submitted yet) we can add it as a separate card.
 
-## Files touched
-- New migration replacing 3 policies on `credit_scores`.
-- Sidebar/nav component (hide link).
-- `CreditScore.tsx`, `CreditScoreDetail.tsx` (route guard).
-- `AdminFarmerDetail.tsx` (hide score section for enumerators).
+## Files
+- `src/pages/Dashboard.tsx` — one-line filter change.
