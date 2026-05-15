@@ -209,8 +209,8 @@ export default function AdminFarmerDetail() {
     });
     if (error) {
       toast({
-        title: "SMS not sent",
-        description: error.message ?? "The farmer was not notified by SMS.",
+        title: "WhatsApp message not sent",
+        description: error.message ?? "The farmer was not notified on WhatsApp.",
         variant: "destructive",
       });
     }
