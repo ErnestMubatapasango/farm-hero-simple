@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       farmer_id: farmer.id,
       organization_id: farmer.organization_id,
       actor_id: callerId,
-      action: "sms_skipped_no_phone",
+      action: "whatsapp_skipped_no_phone",
     });
     return json({ skipped: "no_phone" });
   }
