@@ -203,19 +203,6 @@ export default function AdminFarmerDetail() {
     setUpdating(false);
   };
 
-  const sendSms = async (farmerId: string) => {
-    const { error } = await supabase.functions.invoke("send-verification-sms", {
-      body: { farmer_id: farmerId },
-    });
-    if (error) {
-      toast({
-        title: "WhatsApp message not sent",
-        description: error.message ?? "The farmer was not notified on WhatsApp.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const verify = async () => {
     if (!farmer || !session?.user?.id) return;
     setUpdating(true);
@@ -235,7 +222,6 @@ export default function AdminFarmerDetail() {
         prev ? { ...prev, status: "verified", verified_at: new Date().toISOString() } : prev
       );
       await loadActivity(farmer.id);
-      void sendSms(farmer.id);
     }
     setUpdating(false);
   };
@@ -255,7 +241,6 @@ export default function AdminFarmerDetail() {
       toast({ title: "Farmer rejected" });
       setFarmer((prev) => (prev ? { ...prev, status: "rejected", notes: note || null } : prev));
       await loadActivity(farmer.id);
-      void sendSms(farmer.id);
     }
     setUpdating(false);
   };
