@@ -49,9 +49,7 @@ export default function AdminFarmers() {
       if (!hasRole("developer")) {
         query = query.eq("organization_id", organizationId);
       }
-      if (enumeratorOnly && session?.user?.id) {
-        query = query.eq("enrolled_by", session.user.id);
-      }
+      // Enumerator scope is enforced by RLS — no extra client-side filter needed.
       const { data } = await query;
       setFarmers((data as Farmer[]) || []);
       setLoading(false);
