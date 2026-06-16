@@ -41,6 +41,11 @@ export default function Dashboard() {
       if (!hasRole("developer") && organizationId) {
         farmersQuery = farmersQuery.eq("organization_id", organizationId);
       }
+      const enumeratorOnly =
+        hasRole("enumerator") && !isAdmin;
+      if (enumeratorOnly && session?.user?.id) {
+        farmersQuery = farmersQuery.eq("enrolled_by", session.user.id);
+      }
       const { data: farmersData } = await farmersQuery;
       const farmers = farmersData || [];
 

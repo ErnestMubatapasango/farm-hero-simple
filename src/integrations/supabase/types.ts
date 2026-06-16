@@ -580,6 +580,7 @@ export type Database = {
             }
           }
       can_edit_farmer: { Args: { _farmer_id: string }; Returns: boolean }
+      can_view_farmer: { Args: { _farmer_id: string }; Returns: boolean }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_role:
         | {
