@@ -11,6 +11,7 @@ import {
   XCircle,
   Clock,
   Loader2,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import DocumentPreviewDialog from "./DocumentPreviewDialog";
+
 
 interface FarmerDocument {
   id: string;
@@ -68,6 +71,8 @@ export default function FarmerDocumentsSection({
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [docType, setDocType] = useState<string>("id");
+  const [previewDoc, setPreviewDoc] = useState<FarmerDocument | null>(null);
+
 
   const load = async () => {
     setLoading(true);
@@ -137,8 +142,16 @@ export default function FarmerDocumentsSection({
       toast({ title: "Download error", description: error?.message, variant: "destructive" });
       return;
     }
-    window.open(data.signedUrl, "_blank");
+    const a = document.createElement("a");
+    a.href = data.signedUrl;
+    a.download = doc.file_name;
+    a.target = "_blank";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
+
 
   const handleDelete = async (doc: FarmerDocument) => {
     if (!window.confirm(`Delete ${doc.file_name}?`)) return;
@@ -278,9 +291,18 @@ export default function FarmerDocumentsSection({
                   )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <Button size="sm" variant="outline" onClick={() => handleDownload(d)}>
-                    <Download className="h-3.5 w-3.5 mr-1" /> Open
+                  <Button size="sm" variant="outline" onClick={() => setPreviewDoc(d)}>
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Preview
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDownload(d)}
+                    title="Download"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
+
                   {isAdmin && d.status !== "verified" && (
                     <Button
                       size="sm"
@@ -317,6 +339,13 @@ export default function FarmerDocumentsSection({
           })}
         </div>
       )}
+
+      <DocumentPreviewDialog
+        doc={previewDoc}
+        open={!!previewDoc}
+        onOpenChange={(o) => !o && setPreviewDoc(null)}
+      />
     </div>
   );
 }
+
