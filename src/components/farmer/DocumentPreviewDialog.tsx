@@ -61,6 +61,7 @@ export default function DocumentPreviewDialog({ doc, open, onOpenChange }: Props
 
   useEffect(() => {
     let cancelled = false;
+    let createdBlobUrl: string | null = null;
     if (!open || !doc) {
       setUrl(null);
       setError(null);
@@ -68,21 +69,42 @@ export default function DocumentPreviewDialog({ doc, open, onOpenChange }: Props
     }
     setLoading(true);
     setError(null);
-    supabase.storage
-      .from("farmer-documents")
-      .createSignedUrl(doc.file_path, 300)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data) {
-          setError(error?.message || "Could not load file");
-          setUrl(null);
-        } else {
+    (async () => {
+      const { data, error } = await supabase.storage
+        .from("farmer-documents")
+        .createSignedUrl(doc.file_path, 300);
+      if (cancelled) return;
+      if (error || !data) {
+        setError(error?.message || "Could not load file");
+        setUrl(null);
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(data.signedUrl);
+        if (!res.ok) throw new Error("Failed to fetch file");
+        const blob = await res.blob();
+        const typedBlob =
+          doc.mime_type && blob.type !== doc.mime_type
+            ? new Blob([blob], { type: doc.mime_type })
+            : blob;
+        createdBlobUrl = URL.createObjectURL(typedBlob);
+        if (cancelled) {
+          URL.revokeObjectURL(createdBlobUrl);
+          return;
+        }
+        setUrl(createdBlobUrl);
+      } catch (e: any) {
+        if (!cancelled) {
           setUrl(data.signedUrl);
         }
-        setLoading(false);
-      });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
+      if (createdBlobUrl) URL.revokeObjectURL(createdBlobUrl);
     };
   }, [open, doc]);
 
