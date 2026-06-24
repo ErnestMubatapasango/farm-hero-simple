@@ -110,6 +110,7 @@ export default function Dashboard() {
       ) : stats ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
+            to="/admin/farmers"
             label="Total Farmers"
             value={stats.totalFarmers}
             icon={Sprout}
@@ -117,6 +118,7 @@ export default function Dashboard() {
             bgColor="bg-primary/10"
           />
           <StatCard
+            to="/admin/farmers?status=submitted"
             label="Pending Review"
             value={stats.pendingFarmers}
             icon={Clock}
@@ -124,6 +126,7 @@ export default function Dashboard() {
             bgColor="bg-yellow-500/10"
           />
           <StatCard
+            to="/admin/farmers?status=verified"
             label="Verified"
             value={stats.verifiedFarmers}
             icon={CheckCircle}
@@ -132,6 +135,7 @@ export default function Dashboard() {
           />
           {isAdmin && (
             <StatCard
+              to="/admin/users"
               label="Team Members"
               value={stats.totalUsers}
               icon={Users}
@@ -198,12 +202,14 @@ export default function Dashboard() {
 }
 
 function StatCard({
+  to,
   label,
   value,
   icon: Icon,
   color,
   bgColor,
 }: {
+  to: string;
   label: string;
   value: number;
   icon: React.ElementType;
@@ -211,7 +217,10 @@ function StatCard({
   bgColor: string;
 }) {
   return (
-    <div className="kyf-card p-4 kyf-slide-up">
+    <Link
+      to={to}
+      className="kyf-card p-4 kyf-slide-up hover:border-primary/30 transition-colors block"
+    >
       <div className="flex items-center gap-3 mb-2">
         <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${bgColor}`}>
           <Icon className={`h-4 w-4 ${color}`} />
@@ -219,7 +228,7 @@ function StatCard({
       </div>
       <p className="text-2xl font-bold text-foreground">{value}</p>
       <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-    </div>
+    </Link>
   );
 }
 

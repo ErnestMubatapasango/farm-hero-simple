@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, FileEdit, Send, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -27,10 +27,14 @@ interface Farmer {
 export default function AdminFarmers() {
   const { session, organizationId, hasRole, hasAnyRole } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const initialStatus = searchParams.get("status") || "all";
+  const [statusFilter, setStatusFilter] = useState<string>(
+    ["all", "draft", "submitted", "verified", "rejected"].includes(initialStatus) ? initialStatus : "all"
+  );
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
   // Enumerators (without admin powers) only see farmers they enrolled.
@@ -56,6 +60,16 @@ export default function AdminFarmers() {
     }
     load();
   }, [organizationId, hasRole, enumeratorOnly, session?.user?.id]);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (statusFilter === "all") {
+      next.delete("status");
+    } else {
+      next.set("status", statusFilter);
+    }
+    navigate({ search: next.toString() }, { replace: true });
+  }, [statusFilter, navigate]);
 
   const deriveType = (f: Farmer): "crop" | "livestock" | "mixed" | "none" => {
     const hasCrops = (f.primary_crops?.length || 0) > 0;
