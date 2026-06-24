@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Search, ChevronRight, Clock, CheckCircle, XCircle, FileEdit, Send, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
