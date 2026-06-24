@@ -215,6 +215,9 @@ export default function FarmerDocumentsSection({
         Documents ({docs.length})
       </div>
 
+      <RequiredDocumentsChecklist docs={docs} />
+
+
       {canEdit && (
         <div className="rounded-lg border border-dashed border-border p-4 space-y-3">
           <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
