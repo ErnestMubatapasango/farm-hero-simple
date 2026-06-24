@@ -189,7 +189,7 @@ export default function AdminFarmers() {
       q = applySort(q, sort).range(from, to);
       const { data, count } = await q;
       if (cancelled) return;
-      setFarmers((data as Farmer[]) || []);
+      setFarmers(((data as unknown) as Farmer[]) || []);
       setTotal(count || 0);
 
       // Status counts — independent of status filter, respect search
