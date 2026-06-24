@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import DocumentPreviewDialog from "./DocumentPreviewDialog";
+import RequiredDocumentsChecklist from "./RequiredDocumentsChecklist";
 
 
 interface FarmerDocument {
