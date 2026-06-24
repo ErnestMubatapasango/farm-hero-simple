@@ -147,6 +147,14 @@ export default function AdminFarmerDetail() {
     setActivity((data as ActivityRow[]) || []);
   };
 
+  const loadRequiredDocs = async (farmerId: string) => {
+    const { data } = await supabase
+      .from("farmer_documents")
+      .select("document_type, status")
+      .eq("farmer_id", farmerId);
+    setRequiredDocsOk(hasAllRequiredDocs((data as { document_type: string; status: string }[]) || []));
+  };
+
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
@@ -171,6 +179,7 @@ export default function AdminFarmerDetail() {
       setCrops((cropsRes.data as FarmerCrop[]) || []);
       setYields((yieldRes.data as YieldRow[]) || []);
       await loadActivity(userId);
+      await loadRequiredDocs(userId);
       setLoading(false);
     })();
     return () => {
