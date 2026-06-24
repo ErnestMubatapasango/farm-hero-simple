@@ -62,6 +62,17 @@ export default function AdminFarmers() {
   }, [organizationId, hasRole, enumeratorOnly, session?.user?.id]);
 
   const deriveType = (f: Farmer): "crop" | "livestock" | "mixed" | "none" => {
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (statusFilter === "all") {
+      next.delete("status");
+    } else {
+      next.set("status", statusFilter);
+    }
+    navigate({ search: next.toString() }, { replace: true });
+  }, [statusFilter, navigate]);
+
+  const deriveType = (f: Farmer): "crop" | "livestock" | "mixed" | "none" => {
     const hasCrops = (f.primary_crops?.length || 0) > 0;
     const hasLivestock = (f.primary_livestock?.length || 0) > 0;
     if (hasCrops && hasLivestock) return "mixed";
