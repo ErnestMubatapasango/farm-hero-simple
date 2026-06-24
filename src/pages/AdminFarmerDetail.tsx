@@ -128,6 +128,7 @@ export default function AdminFarmerDetail() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
+  const [requiredDocsOk, setRequiredDocsOk] = useState(false);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
   const isOwner = !!session?.user?.id && farmer?.enrolled_by === session.user.id;
