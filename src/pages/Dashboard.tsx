@@ -110,6 +110,7 @@ export default function Dashboard() {
       ) : stats ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
+            to="/admin/farmers"
             label="Total Farmers"
             value={stats.totalFarmers}
             icon={Sprout}
@@ -117,6 +118,7 @@ export default function Dashboard() {
             bgColor="bg-primary/10"
           />
           <StatCard
+            to="/admin/farmers?status=submitted"
             label="Pending Review"
             value={stats.pendingFarmers}
             icon={Clock}
@@ -124,6 +126,7 @@ export default function Dashboard() {
             bgColor="bg-yellow-500/10"
           />
           <StatCard
+            to="/admin/farmers?status=verified"
             label="Verified"
             value={stats.verifiedFarmers}
             icon={CheckCircle}
@@ -132,6 +135,7 @@ export default function Dashboard() {
           />
           {isAdmin && (
             <StatCard
+              to="/admin/users"
               label="Team Members"
               value={stats.totalUsers}
               icon={Users}
