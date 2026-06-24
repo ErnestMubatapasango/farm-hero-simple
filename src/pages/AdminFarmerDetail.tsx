@@ -21,6 +21,7 @@ import {
   Lock,
 } from "lucide-react";
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
+import { hasAllRequiredDocs } from "@/components/farmer/RequiredDocumentsChecklist";
 
 interface FarmerDetail {
   id: string;
