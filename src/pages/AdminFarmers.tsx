@@ -61,7 +61,6 @@ export default function AdminFarmers() {
     load();
   }, [organizationId, hasRole, enumeratorOnly, session?.user?.id]);
 
-  const deriveType = (f: Farmer): "crop" | "livestock" | "mixed" | "none" => {
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     if (statusFilter === "all") {
