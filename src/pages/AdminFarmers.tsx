@@ -27,10 +27,14 @@ interface Farmer {
 export default function AdminFarmers() {
   const { session, organizationId, hasRole, hasAnyRole } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const initialStatus = searchParams.get("status") || "all";
+  const [statusFilter, setStatusFilter] = useState<string>(
+    ["all", "draft", "submitted", "verified", "rejected"].includes(initialStatus) ? initialStatus : "all"
+  );
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
   // Enumerators (without admin powers) only see farmers they enrolled.
