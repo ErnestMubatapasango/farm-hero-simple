@@ -287,29 +287,28 @@ export default function AdminFarmers() {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
     setBulkBusy(true);
-    const { error, count } = await supabase
+    const { data, error } = await supabase
       .from("farmers")
-      .update(
-        {
-          status: "verified",
-          verified_by: session?.user?.id,
-          verified_at: new Date().toISOString(),
-        },
-        { count: "exact" }
-      )
+      .update({
+        status: "verified",
+        verified_by: session?.user?.id,
+        verified_at: new Date().toISOString(),
+      })
       .in("id", ids)
       .eq("status", "submitted")
-      .select("id", { count: "exact", head: true });
+      .select("id");
     setBulkBusy(false);
     if (error) {
       toast({ title: "Verify failed", description: error.message, variant: "destructive" });
       return;
     }
+    const updated = data?.length ?? 0;
     toast({
-      title: `Verified ${count ?? ids.length} farmer(s)`,
-      description: ids.length !== (count ?? ids.length)
-        ? `${ids.length - (count ?? 0)} skipped (no permission or status changed)`
-        : undefined,
+      title: `Verified ${updated} farmer(s)`,
+      description:
+        ids.length !== updated
+          ? `${ids.length - updated} skipped (no permission or status changed)`
+          : undefined,
     });
     setSelected(new Set());
     refresh();
@@ -319,26 +318,25 @@ export default function AdminFarmers() {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
     setBulkBusy(true);
-    const { error, count } = await supabase
+    const { data, error } = await supabase
       .from("farmers")
-      .update(
-        { status: "rejected", notes: rejectReason || null },
-        { count: "exact" }
-      )
+      .update({ status: "rejected", notes: rejectReason || null })
       .in("id", ids)
       .eq("status", "submitted")
-      .select("id", { count: "exact", head: true });
+      .select("id");
     setBulkBusy(false);
     if (error) {
       toast({ title: "Reject failed", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: `Rejected ${count ?? ids.length} farmer(s)` });
+    const updated = data?.length ?? 0;
+    toast({ title: `Rejected ${updated} farmer(s)` });
     setSelected(new Set());
     setRejectReason("");
     setRejectOpen(false);
     refresh();
   };
+
 
   const exportCsv = async () => {
     setExporting(true);
