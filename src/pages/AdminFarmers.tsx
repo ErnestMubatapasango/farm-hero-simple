@@ -354,7 +354,7 @@ export default function AdminFarmers() {
           setExporting(false);
           return;
         }
-        const rows = (data as Farmer[]) || [];
+        const rows = ((data as unknown) as Farmer[]) || [];
         all.push(...rows);
         if (rows.length < batchSize) break;
         from += batchSize;
