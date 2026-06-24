@@ -202,12 +202,14 @@ export default function Dashboard() {
 }
 
 function StatCard({
+  to,
   label,
   value,
   icon: Icon,
   color,
   bgColor,
 }: {
+  to: string;
   label: string;
   value: number;
   icon: React.ElementType;
@@ -215,7 +217,10 @@ function StatCard({
   bgColor: string;
 }) {
   return (
-    <div className="kyf-card p-4 kyf-slide-up">
+    <Link
+      to={to}
+      className="kyf-card p-4 kyf-slide-up hover:border-primary/30 transition-colors block"
+    >
       <div className="flex items-center gap-3 mb-2">
         <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${bgColor}`}>
           <Icon className={`h-4 w-4 ${color}`} />
@@ -223,7 +228,7 @@ function StatCard({
       </div>
       <p className="text-2xl font-bold text-foreground">{value}</p>
       <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-    </div>
+    </Link>
   );
 }
 
