@@ -16,13 +16,13 @@ function escapeCell(value: unknown): string {
   return str;
 }
 
-export function toCsv<T extends Record<string, unknown>>(
+export function toCsv<T>(
   rows: T[],
   columns: { key: keyof T; header: string }[]
 ): string {
   const header = columns.map((c) => escapeCell(c.header)).join(",");
   const body = rows
-    .map((row) => columns.map((c) => escapeCell(row[c.key])).join(","))
+    .map((row) => columns.map((c) => escapeCell(row[c.key] as unknown)).join(","))
     .join("\n");
   return `${header}\n${body}`;
 }
