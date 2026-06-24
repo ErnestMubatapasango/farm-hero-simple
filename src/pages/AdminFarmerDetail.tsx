@@ -320,14 +320,21 @@ export default function AdminFarmerDetail() {
       {/* Workflow actions */}
       <div className="flex flex-wrap gap-3">
         {canSubmit && (
-          <button
-            onClick={submitForReview}
-            disabled={updating}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
-          >
-            <Send className="h-4 w-4" />
-            Submit for Review
-          </button>
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={submitForReview}
+              disabled={updating || !requiredDocsOk}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
+            >
+              <Send className="h-4 w-4" />
+              Submit for Review
+            </button>
+            {!requiredDocsOk && (
+              <p className="text-xs text-muted-foreground">
+                Upload National ID and Land Title before submitting.
+              </p>
+            )}
+          </div>
         )}
         {canVerifyOrReject && (
           <>
