@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import DocumentPreviewDialog from "./DocumentPreviewDialog";
+import RequiredDocumentsChecklist from "./RequiredDocumentsChecklist";
 
 
 interface FarmerDocument {
@@ -213,6 +214,9 @@ export default function FarmerDocumentsSection({
         <FileText className="h-4 w-4 text-primary" />
         Documents ({docs.length})
       </div>
+
+      <RequiredDocumentsChecklist docs={docs} />
+
 
       {canEdit && (
         <div className="rounded-lg border border-dashed border-border p-4 space-y-3">

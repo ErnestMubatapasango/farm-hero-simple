@@ -21,6 +21,7 @@ import {
   Lock,
 } from "lucide-react";
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
+import { hasAllRequiredDocs } from "@/components/farmer/RequiredDocumentsChecklist";
 
 interface FarmerDetail {
   id: string;
@@ -127,6 +128,7 @@ export default function AdminFarmerDetail() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
+  const [requiredDocsOk, setRequiredDocsOk] = useState(false);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
   const isOwner = !!session?.user?.id && farmer?.enrolled_by === session.user.id;
@@ -143,6 +145,14 @@ export default function AdminFarmerDetail() {
       .eq("farmer_id", farmerId)
       .order("created_at", { ascending: false });
     setActivity((data as ActivityRow[]) || []);
+  };
+
+  const loadRequiredDocs = async (farmerId: string) => {
+    const { data } = await supabase
+      .from("farmer_documents")
+      .select("document_type, status")
+      .eq("farmer_id", farmerId);
+    setRequiredDocsOk(hasAllRequiredDocs((data as { document_type: string; status: string }[]) || []));
   };
 
   useEffect(() => {
@@ -169,6 +179,7 @@ export default function AdminFarmerDetail() {
       setCrops((cropsRes.data as FarmerCrop[]) || []);
       setYields((yieldRes.data as YieldRow[]) || []);
       await loadActivity(userId);
+      await loadRequiredDocs(userId);
       setLoading(false);
     })();
     return () => {
@@ -309,14 +320,21 @@ export default function AdminFarmerDetail() {
       {/* Workflow actions */}
       <div className="flex flex-wrap gap-3">
         {canSubmit && (
-          <button
-            onClick={submitForReview}
-            disabled={updating}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
-          >
-            <Send className="h-4 w-4" />
-            Submit for Review
-          </button>
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={submitForReview}
+              disabled={updating || !requiredDocsOk}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
+            >
+              <Send className="h-4 w-4" />
+              Submit for Review
+            </button>
+            {!requiredDocsOk && (
+              <p className="text-xs text-muted-foreground">
+                Upload National ID and Land Title before submitting.
+              </p>
+            )}
+          </div>
         )}
         {canVerifyOrReject && (
           <>
