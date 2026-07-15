@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -19,9 +19,12 @@ import {
   FileEdit,
   History,
   Lock,
+  Pencil,
+  Undo2,
 } from "lucide-react";
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
 import { hasAllRequiredDocs } from "@/components/farmer/RequiredDocumentsChecklist";
+import { StatusStepper } from "@/components/farmer/StatusStepper";
 
 interface FarmerDetail {
   id: string;
