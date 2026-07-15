@@ -280,6 +280,24 @@ export default function AdminFarmerDetail() {
     setUpdating(false);
   };
 
+  const reopen = async () => {
+    if (!farmer) return;
+    if (!window.confirm("Reopen this record and move it back to Submitted for re-review?")) return;
+    setUpdating(true);
+    const { error } = await supabase
+      .from("farmers")
+      .update({ status: "submitted", verified_at: null, verified_by: null })
+      .eq("id", farmer.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Record reopened" });
+      setFarmer((prev) => (prev ? { ...prev, status: "submitted", verified_at: null } : prev));
+      await loadActivity(farmer.id);
+    }
+    setUpdating(false);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
