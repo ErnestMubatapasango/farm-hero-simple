@@ -443,9 +443,12 @@ export default function AdminFarmerDetail() {
               activity.map((a) => (
                 <div key={a.id} className="text-xs border-l-2 border-border pl-3 py-1">
                   <p className="text-foreground capitalize">
-                    {a.action.replace(/_/g, " ")}
+                    <span className="font-medium">
+                      {a.actor_name || (a.actor_id ? "Unknown user" : "System")}
+                    </span>{" "}
+                    <span className="normal-case">{a.action.replace(/_/g, " ")}</span>
                     {a.from_status && a.to_status && (
-                      <span className="text-muted-foreground"> — {a.from_status} → {a.to_status}</span>
+                      <span className="text-muted-foreground normal-case"> — {a.from_status} → {a.to_status}</span>
                     )}
                   </p>
                   {a.notes && <p className="text-muted-foreground mt-0.5">"{a.notes}"</p>}
