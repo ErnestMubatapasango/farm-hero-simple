@@ -65,6 +65,7 @@ interface ActivityRow {
   to_status: string | null;
   notes: string | null;
   created_at: string;
+  actor_name?: string | null;
 }
 
 interface FarmerCrop {
