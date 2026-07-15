@@ -135,12 +135,15 @@ export default function AdminFarmerDetail() {
   const [requiredDocsOk, setRequiredDocsOk] = useState(false);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+  const isSuperAdmin = hasAnyRole(["super_admin", "developer"]);
   const isOwner = !!session?.user?.id && farmer?.enrolled_by === session.user.id;
   const editableStatus = farmer?.status === "draft" || farmer?.status === "rejected";
   const canEdit = isAdmin || (hasRole("enumerator") && isOwner && editableStatus);
   const canSubmit = isOwner && editableStatus;
   const canVerifyOrReject = isAdmin && farmer?.status === "submitted";
   const isLocked = farmer?.status === "verified";
+  const canReopen =
+    isSuperAdmin && (farmer?.status === "verified" || farmer?.status === "rejected");
 
   const loadActivity = async (farmerId: string) => {
     const { data } = await supabase
@@ -148,7 +151,24 @@ export default function AdminFarmerDetail() {
       .select("id, actor_id, action, from_status, to_status, notes, created_at")
       .eq("farmer_id", farmerId)
       .order("created_at", { ascending: false });
-    setActivity((data as ActivityRow[]) || []);
+    const rows = (data as ActivityRow[]) || [];
+    // Enrich with actor names
+    const actorIds = Array.from(
+      new Set(rows.map((r) => r.actor_id).filter((v): v is string => !!v))
+    );
+    if (actorIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", actorIds);
+      const nameById = new Map(
+        (profiles || []).map((p) => [p.user_id as string, p.full_name as string | null])
+      );
+      rows.forEach((r) => {
+        r.actor_name = r.actor_id ? nameById.get(r.actor_id) || null : null;
+      });
+    }
+    setActivity(rows);
   };
 
   const loadRequiredDocs = async (farmerId: string) => {
