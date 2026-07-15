@@ -598,6 +598,17 @@ export type Database = {
             }
             Returns: boolean
           }
+      list_org_members: {
+        Args: { _org_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          full_name: string
+          last_sign_in_at: string
+          roles: Database["public"]["Enums"]["app_role"][]
+          user_id: string
+        }[]
+      }
       revoke_invitation: {
         Args: { _invitation_id: string }
         Returns: {
@@ -620,6 +631,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_user_roles: {
+        Args: {
+          _org_id: string
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
