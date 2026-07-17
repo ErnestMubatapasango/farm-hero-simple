@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
+import { relativeTime } from "@/lib/relative-time";
 import {
   Sprout,
   ChevronRight,
@@ -12,6 +13,8 @@ import {
   CheckCircle,
   XCircle,
   Send,
+  Activity,
+  Trophy,
 } from "lucide-react";
 
 interface Stats {
@@ -23,10 +26,30 @@ interface Stats {
   pendingInvitations: number;
 }
 
+interface ActivityRow {
+  id: string;
+  action: string;
+  from_status: string | null;
+  to_status: string | null;
+  created_at: string;
+  farmer_id: string;
+  actor_id: string | null;
+  farmer_name?: string;
+  actor_name?: string;
+}
+
+interface LeaderRow {
+  user_id: string;
+  full_name: string;
+  count: number;
+}
+
 export default function Dashboard() {
   const { session, roles, loading, organizationId, hasAnyRole, hasRole } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [activity, setActivity] = useState<ActivityRow[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
 
@@ -37,12 +60,11 @@ export default function Dashboard() {
       setLoadingStats(true);
 
       // Farmers
-      let farmersQuery = supabase.from("farmers").select("status");
+      let farmersQuery = supabase.from("farmers").select("status, enrolled_by");
       if (!hasRole("developer") && organizationId) {
         farmersQuery = farmersQuery.eq("organization_id", organizationId);
       }
-      const enumeratorOnly =
-        hasRole("enumerator") && !isAdmin;
+      const enumeratorOnly = hasRole("enumerator") && !isAdmin;
       if (enumeratorOnly && session?.user?.id) {
         farmersQuery = farmersQuery.eq("enrolled_by", session.user.id);
       }
@@ -79,6 +101,72 @@ export default function Dashboard() {
         totalUsers: usersCount,
         pendingInvitations: pendingInvites,
       });
+
+      // Leaderboard (admins only) — top 5 enumerators by farmer count
+      if (isAdmin) {
+        const counts = new Map<string, number>();
+        farmers.forEach((f: any) => {
+          if (!f.enrolled_by) return;
+          counts.set(f.enrolled_by, (counts.get(f.enrolled_by) || 0) + 1);
+        });
+        const topIds = Array.from(counts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5);
+        if (topIds.length) {
+          const ids = topIds.map(([id]) => id);
+          const { data: profs } = await supabase
+            .from("profiles")
+            .select("user_id, full_name")
+            .in("user_id", ids);
+          const nameMap = new Map((profs || []).map((p: any) => [p.user_id, p.full_name]));
+          setLeaderboard(
+            topIds.map(([id, count]) => ({
+              user_id: id,
+              full_name: nameMap.get(id) || "Unknown",
+              count,
+            }))
+          );
+        } else {
+          setLeaderboard([]);
+        }
+      }
+
+      // Recent activity
+      let actQuery = supabase
+        .from("farmer_activity_log")
+        .select("id, action, from_status, to_status, created_at, farmer_id, actor_id")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (!hasRole("developer") && organizationId) {
+        actQuery = actQuery.eq("organization_id", organizationId);
+      }
+      const { data: actData } = await actQuery;
+      const acts = (actData || []) as ActivityRow[];
+
+      if (acts.length) {
+        const farmerIds = Array.from(new Set(acts.map((a) => a.farmer_id)));
+        const actorIds = Array.from(
+          new Set(acts.map((a) => a.actor_id).filter((v): v is string => !!v))
+        );
+        const [{ data: fData }, { data: pData }] = await Promise.all([
+          supabase.from("farmers").select("id, first_name, last_name").in("id", farmerIds),
+          actorIds.length
+            ? supabase.from("profiles").select("user_id, full_name").in("user_id", actorIds)
+            : Promise.resolve({ data: [] as any[] }),
+        ]);
+        const fMap = new Map((fData || []).map((f: any) => [f.id, `${f.first_name} ${f.last_name}`]));
+        const pMap = new Map((pData || []).map((p: any) => [p.user_id, p.full_name]));
+        setActivity(
+          acts.map((a) => ({
+            ...a,
+            farmer_name: fMap.get(a.farmer_id) || "Unknown farmer",
+            actor_name: a.actor_id ? pMap.get(a.actor_id) || "Unknown" : "System",
+          }))
+        );
+      } else {
+        setActivity([]);
+      }
+
       setLoadingStats(false);
     }
     loadStats();
@@ -108,7 +196,7 @@ export default function Dashboard() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : stats ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             to="/admin/farmers"
             label="Total Farmers"
@@ -132,6 +220,14 @@ export default function Dashboard() {
             icon={CheckCircle}
             color="text-green-500"
             bgColor="bg-green-500/10"
+          />
+          <StatCard
+            to="/admin/farmers?status=rejected"
+            label="Rejected"
+            value={stats.rejectedFarmers}
+            icon={XCircle}
+            color="text-destructive"
+            bgColor="bg-destructive/10"
           />
           {isAdmin && (
             <StatCard
@@ -185,6 +281,64 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Two-column: activity + leaderboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="kyf-card-flat p-5 lg:col-span-2">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Recent Activity</h2>
+          </div>
+          {activity.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No activity yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {activity.map((a) => (
+                <li key={a.id} className="flex items-start gap-3">
+                  <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <Link
+                      to={`/admin/farmer/${a.farmer_id}`}
+                      className="text-sm text-foreground hover:underline"
+                    >
+                      <span className="font-medium">{a.actor_name}</span>{" "}
+                      <span className="text-muted-foreground">{describeAction(a)}</span>{" "}
+                      <span className="font-medium">{a.farmer_name}</span>
+                    </Link>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {relativeTime(a.created_at)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {isAdmin && (
+          <div className="kyf-card-flat p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Top Enumerators</h2>
+            </div>
+            {leaderboard.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No enrollments yet.</p>
+            ) : (
+              <ol className="space-y-2">
+                {leaderboard.map((l, i) => (
+                  <li key={l.user_id} className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm text-foreground flex-1 truncate">{l.full_name}</span>
+                    <span className="text-sm font-semibold text-foreground">{l.count}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Role info */}
       <div className="kyf-card-flat p-5 kyf-slide-up" style={{ animationDelay: "160ms" }}>
         <div className="flex items-center gap-3">
@@ -199,6 +353,18 @@ export default function Dashboard() {
       </div>
     </div>
   );
+}
+
+function describeAction(a: ActivityRow): string {
+  switch (a.action) {
+    case "created": return "created";
+    case "submitted": return "submitted";
+    case "verified": return "verified";
+    case "rejected": return "rejected";
+    case "updated": return "updated";
+    case "status_changed": return `moved ${a.from_status || "?"} → ${a.to_status || "?"} for`;
+    default: return a.action;
+  }
 }
 
 function StatCard({
