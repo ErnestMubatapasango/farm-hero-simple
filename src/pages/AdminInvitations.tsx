@@ -290,41 +290,95 @@ export default function AdminInvitations() {
         </div>
       </div>
 
+      {(() => {
+        const counts = {
+          all: invitations.length,
+          pending: invitations.filter((i) => i.status === "pending").length,
+          accepted: invitations.filter((i) => i.status === "accepted").length,
+          revoked: invitations.filter((i) => i.status === "revoked").length,
+        };
+        const tabs: { key: FilterKey; label: string }[] = [
+          { key: "all", label: "All" },
+          { key: "pending", label: "Pending" },
+          { key: "accepted", label: "Accepted" },
+          { key: "revoked", label: "Revoked" },
+        ];
+        return (
+          <div className="flex flex-wrap gap-1 border-b border-border">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setFilter(t.key)}
+                className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  filter === t.key
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t.label}
+                <span className="ml-1.5 text-xs text-muted-foreground">{counts[t.key]}</span>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
+
       <div className="kyf-card-flat divide-y divide-border">
-        {invitations.length === 0 ? (
-          <p className="p-6 text-center text-muted-foreground">No invitations yet.</p>
-        ) : (
-          invitations.map((inv) => {
+        {(() => {
+          const filtered = filter === "all" ? invitations : invitations.filter((i) => i.status === filter);
+          if (filtered.length === 0) {
+            return (
+              <EmptyState
+                icon={Inbox}
+                title={filter === "all" ? "No invitations yet" : `No ${filter} invitations`}
+                description={
+                  isSuperAdmin && filter !== "revoked"
+                    ? "Invite admins and enumerators using the button above."
+                    : undefined
+                }
+              />
+            );
+          }
+          return filtered.map((inv) => {
             const acceptedName = inv.invited_user_id ? nameMap[inv.invited_user_id] : null;
             const revokerName = inv.revoked_by ? nameMap[inv.revoked_by] : null;
             const isAccepted = inv.status === "accepted";
             const isRevoked = inv.status === "revoked";
+            const isPending = inv.status === "pending";
+            const stale = isPending && daysSince(inv.created_at) >= STALE_DAYS;
             return (
               <div key={inv.id} className="flex items-center justify-between px-5 py-4">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5">{statusIcon(inv.status)}</div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">{inv.email}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-foreground">{inv.email}</p>
+                      {stale && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 text-yellow-600 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                          <AlertTriangle className="h-3 w-3" />
+                          Stale · resend
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground capitalize">
                       {inv.role.replace("_", " ")} · {inv.status}
-                      {inv.created_at && ` · sent ${new Date(inv.created_at).toLocaleDateString()}`}
+                      {inv.created_at && ` · sent ${relativeTime(inv.created_at)}`}
                     </p>
                     {isAccepted && inv.accepted_at && (
                       <p className="text-xs text-green-600 mt-1 normal-case">
-                        Accepted by {acceptedName || inv.email} ·{" "}
-                        {new Date(inv.accepted_at).toLocaleString()}
+                        Accepted by {acceptedName || inv.email} · {relativeTime(inv.accepted_at)}
                       </p>
                     )}
                     {isRevoked && inv.revoked_at && (
                       <p className="text-xs text-muted-foreground mt-1 normal-case">
-                        Access revoked {new Date(inv.revoked_at).toLocaleString()}
+                        Access revoked {relativeTime(inv.revoked_at)}
                         {revokerName ? ` by ${revokerName}` : ""}
                       </p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {inv.status === "pending" && isSuperAdmin && (
+                  {isPending && isSuperAdmin && (
                     <button
                       onClick={() => handleResend(inv.id)}
                       className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -345,9 +399,10 @@ export default function AdminInvitations() {
                 </div>
               </div>
             );
-          })
-        )}
+          });
+        })()}
       </div>
+
 
       {/* Revoke confirmation with password re-auth */}
       <Dialog open={!!revokeTarget} onOpenChange={(open) => !open && closeRevokeDialog()}>
