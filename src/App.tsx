@@ -60,6 +60,8 @@ const App = () => (
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/admin/users" element={<AdminUsers />} />
                   <Route path="/admin/roles" element={<AdminRoles />} />
+                </Route>
+                <Route element={<RoleRoute allow={["super_admin", "developer"]} />}>
                   <Route path="/admin/invitations" element={<AdminInvitations />} />
                 </Route>
               </Route>
