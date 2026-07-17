@@ -54,6 +54,8 @@ export default function AdminInvitations() {
   const [revokeError, setRevokeError] = useState("");
   const [revoking, setRevoking] = useState(false);
 
+  const [filter, setFilter] = useState<FilterKey>("all");
+
   const isSuperAdmin = hasRole("super_admin") || hasRole("developer");
 
   const loadInvitations = useCallback(async (showSpinner = true) => {
