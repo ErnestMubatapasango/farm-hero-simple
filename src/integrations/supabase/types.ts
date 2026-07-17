@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_scores: {
+        Row: {
+          band: string
+          breakdown: Json
+          computed_at: string
+          computed_by: string | null
+          created_at: string
+          farmer_id: string
+          id: string
+          inputs_hash: string | null
+          organization_id: string
+          recommendations: Json
+          score: number
+          updated_at: string
+        }
+        Insert: {
+          band: string
+          breakdown?: Json
+          computed_at?: string
+          computed_by?: string | null
+          created_at?: string
+          farmer_id: string
+          id?: string
+          inputs_hash?: string | null
+          organization_id: string
+          recommendations?: Json
+          score: number
+          updated_at?: string
+        }
+        Update: {
+          band?: string
+          breakdown?: Json
+          computed_at?: string
+          computed_by?: string | null
+          created_at?: string
+          farmer_id?: string
+          id?: string
+          inputs_hash?: string | null
+          organization_id?: string
+          recommendations?: Json
+          score?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       crop_yield_history: {
         Row: {
           created_at: string
@@ -137,6 +182,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      farmer_documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          farmer_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          notes: string | null
+          organization_id: string
+          status: string
+          updated_at: string
+          uploaded_by: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          farmer_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          organization_id: string
+          status?: string
+          updated_at?: string
+          uploaded_by: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          farmer_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          organization_id?: string
+          status?: string
+          updated_at?: string
+          uploaded_by?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: []
       }
       farmers: {
         Row: {
@@ -298,6 +397,42 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          farmer_id: string | null
+          id: string
+          organization_id: string
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          organization_id: string
+          read_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          organization_id?: string
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           created_at: string | null
@@ -329,6 +464,7 @@ export type Database = {
           full_name: string | null
           id: string
           organization_id: string | null
+          preferred_currency: string
           updated_at: string | null
           user_id: string
         }
@@ -338,6 +474,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           organization_id?: string | null
+          preferred_currency?: string
           updated_at?: string | null
           user_id: string
         }
@@ -347,6 +484,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           organization_id?: string | null
+          preferred_currency?: string
           updated_at?: string | null
           user_id?: string
         }
@@ -397,54 +535,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      accept_my_invitation:
-        | {
-            Args: never
-            Returns: {
-              accepted_at: string | null
-              created_at: string
-              email: string
-              full_name: string | null
-              id: string
-              invited_by: string
-              invited_user_id: string | null
-              organization_id: string
-              revoked_at: string | null
-              revoked_by: string | null
-              role: Database["public"]["Enums"]["app_role"]
-              status: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "invitations"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: { _full_name?: string }
-            Returns: {
-              accepted_at: string | null
-              created_at: string
-              email: string
-              full_name: string | null
-              id: string
-              invited_by: string
-              invited_user_id: string | null
-              organization_id: string
-              revoked_at: string | null
-              revoked_by: string | null
-              role: Database["public"]["Enums"]["app_role"]
-              status: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "invitations"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
+      accept_my_invitation: {
+        Args: { _full_name?: string }
+        Returns: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          invited_by: string
+          invited_user_id: string | null
+          organization_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invitations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       can_edit_farmer: { Args: { _farmer_id: string }; Returns: boolean }
+      can_view_farmer: { Args: { _farmer_id: string }; Returns: boolean }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_role:
         | {
@@ -462,6 +577,17 @@ export type Database = {
             }
             Returns: boolean
           }
+      list_org_members: {
+        Args: { _org_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          full_name: string
+          last_sign_in_at: string
+          roles: Database["public"]["Enums"]["app_role"][]
+          user_id: string
+        }[]
+      }
       revoke_invitation: {
         Args: { _invitation_id: string }
         Returns: {
@@ -484,6 +610,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_user_roles: {
+        Args: {
+          _org_id: string
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

@@ -1,68 +1,78 @@
-## Goal
 
-Give enumerators a fast path to find farmers they onboarded and edit them via the same multi-step form they used at onboarding.
+# Plan — Farmers list scale-ups + Required documents checklist
 
-## 1. Dashboard quick action (`src/pages/Dashboard.tsx`)
+Two focused slices, no schema changes.
 
-- Add a new `QuickAction` card visible to enumerators: **"My Farmers"** → links to `/admin/farmers`, description "View & edit farmers you onboarded".
-- Show this card for `enumerator` role (admins already see "Review Farmers", so we can show this only when the user is an enumerator without admin powers — same gating used in `AdminFarmers`).
+## Slice A — `AdminFarmers` page improvements
 
-## 2. Edit button on each farmer row (`src/pages/AdminFarmers.tsx`)
+### A1. Server-side pagination
+- Fetch a page at a time using `.range(from, to)` with `count: "exact"`.
+- Page size selector: 25 / 50 / 100 (default 25).
+- Footer shows `Showing X–Y of N` plus Prev / Next buttons.
+- URL params: `page`, `pageSize` (added alongside existing `status`).
 
-- For each row where the current user can edit the farmer (status is `draft` or `rejected` AND `enrolled_by === user.id`, OR user is admin/super_admin/developer), render a small pencil (`Pencil` from lucide-react) button next to the chevron.
-- Clicking the pencil navigates to `/admin/farmer/:id/edit` (use `e.preventDefault()` + `e.stopPropagation()` so the row link doesn't also fire).
-- Verified/submitted records owned by an enumerator who isn't admin → no pencil shown (edit is locked by RLS anyway, surface that in UI).
+### A2. Server-side search
+- Replace the in-memory `useMemo` filter with a debounced (300 ms) Supabase query.
+- Searches `first_name`, `last_name`, `phone`, `farm_name`, `ward`, `village` via `.or(...ilike.%q%...)`.
+- Reset to page 1 when search or status changes.
+- URL param: `q`.
 
-## 3. Reusable onboarding form + edit route
+### A3. Sorting
+- Sort dropdown above the list: Newest, Oldest, Name A→Z, Name Z→A, Status.
+- Applied via `.order(...)` in the query.
+- URL param: `sort`.
 
-The current `src/pages/Onboarding.tsx` mixes UI and "create" logic. Refactor lightly so the same UI handles edit:
+### A4. CSV export
+- "Export CSV" button. Pulls all rows matching current filters (paged in 1000-row batches to respect Supabase's cap), builds a CSV in-memory, and triggers download.
+- Columns: name, phone, region, district, ward, village, farm_name, farm_size_hectares, primary_crops, status, created_at.
 
-- **Extract** the form body + `FormState`/`emptyForm` into `src/components/onboarding/FarmerForm.tsx`. Props:
-  - `mode: "create" | "edit"`
-  - `initialData?: FormState`
-  - `farmerId?: string` (only in edit)
-  - Internal submit handler branches on `mode`.
-- **`Onboarding.tsx`** becomes a thin wrapper: `<FarmerForm mode="create" />`.
-- **New route** `src/pages/EditFarmer.tsx` mounted at `/admin/farmer/:id/edit` (wire it in `src/App.tsx` next to the existing `/admin/farmer/:id` route, gated by the same `ProtectedRoute`):
-  1. On mount, load:
-     - `farmers` row by id
-     - `farmer_crops` (ordered by `position`)
-     - `crop_yield_history` (current + previous year)
-  2. Map into `FormState` (primary/secondary crop from positions 1/2, `farmingMethods[crop]` from `farming_method`, `yieldHistory[crop_year]` from yield rows).
-  3. If user can't edit (status not in `draft`/`rejected` and not admin) → show a read-only banner + link back to detail page. Don't even render the form.
-  4. Render `<FarmerForm mode="edit" farmerId={id} initialData={mapped} />`.
+### A5. Bulk verify / reject (admins only, `submitted` rows only)
+- Checkbox column appears only for admins.
+- "Select all on page" checkbox in the header.
+- Floating action bar when ≥1 row selected: `Verify selected` / `Reject selected (with reason)`.
+- Reject opens a small dialog that captures a single reason applied to all selected rows.
+- Updates run as a single `.update(...).in("id", ids)` query; RLS still enforces per-row permission.
+- Activity log entries are created automatically by the existing `farmers_audit_trigger`.
+- Toast with success/failure count, then reload the page.
 
-## 4. Submit logic in edit mode
+### Files touched
+- `src/pages/AdminFarmers.tsx` (main rewrite — keep the existing visual design, just swap the data-fetching layer and add controls).
+- New: `src/lib/csv.ts` — tiny CSV stringifier (no dependency).
 
-Inside `FarmerForm.handleSubmit` when `mode === "edit"`:
+## Slice B — Required documents checklist
 
-- `UPDATE farmers` SET all editable columns by `id = farmerId`. Do **not** touch `status`, `enrolled_by`, `organization_id`, `verified_*`, `submitted_at` — the audit trigger handles `updated_by`/`updated_at` and the activity log.
-- For crops: simplest correct approach — `DELETE FROM farmer_crops WHERE farmer_id = :id`, then `INSERT` the current selection (positions 1/2). RLS allows this because `can_edit_farmer()` is true for owners on draft/rejected and admins always.
-- For yield history: same pattern — `DELETE FROM crop_yield_history WHERE farmer_id = :id`, then re-insert the non-empty rows from the form.
-- Toast "Farmer updated" and navigate back to `/admin/farmer/:id`.
+### B1. New component
+- `src/components/farmer/RequiredDocumentsChecklist.tsx`
+- Required types (constant): `id` (National ID), `land_title` (Land Title). Optional: `receipt`, `insurance`, `photo`, `other` (shown grouped under "Optional").
+- For each required type, show:
+  - Checkmark + green if a `verified` doc of that type exists
+  - Clock + yellow if a `pending` doc exists
+  - X + red if a `rejected` doc exists (and no pending/verified replacement)
+  - Outline + muted "Missing" if no doc of that type exists
+- Show count complete (e.g. "2 of 2 required documents verified").
 
-If anything fails after the farmers UPDATE we surface a toast — we do not attempt to roll back the farmer row (unlike create, which deletes the orphan farmer on failure) because the row already existed.
+### B2. Wire into farmer detail
+- Render the checklist at the top of `FarmerDocumentsSection` (above the upload form).
+- Reuses the same `docs` array already loaded — no extra query.
 
-## 5. Out of scope
+### B3. Gate "Submit for Review"
+- In `AdminFarmerDetail`, compute `hasRequiredDocs` from a fresh fetch of `farmer_documents` (types `id` and `land_title` with status ≠ `rejected`).
+- If `canSubmit` but `!hasRequiredDocs`, disable the Submit button and show a small inline hint: "Upload National ID and Land Title before submitting."
+- Admins (verify/reject) and the rest of the workflow are not affected.
 
-- No DB migration (RLS + triggers from the previous migration already cover this; `crop_yield_history` DELETE policy currently only allows super_admin — see note below).
-- No design changes beyond the new card and pencil icon.
+### Files touched
+- New: `src/components/farmer/RequiredDocumentsChecklist.tsx`
+- `src/components/farmer/FarmerDocumentsSection.tsx` (mount the checklist)
+- `src/pages/AdminFarmerDetail.tsx` (load required-doc status + gate Submit button)
 
-## Open question / heads-up
+## Out of scope for this round
+- No DB migrations.
+- No changes to the documents preview dialog, bulk download, or replace-file flow.
+- No changes to the users/invitations/dashboard pages.
+- Visual design stays as-is; only adds controls (sort dropdown, checkboxes, footer, action bar, checklist card).
 
-The current `crop_yield_history` DELETE RLS policy only allows `super_admin` / `developer`. If we go with the delete-then-insert approach for yields, an enumerator editing their own draft farmer will hit a permission error on yields. Two options:
-
-1. **Recommended**: extend the DELETE policy to `can_edit_farmer(farmer_id)` (tiny migration).
-2. Alternative: do per-row upsert (`INSERT ... ON CONFLICT (farmer_id, crop, year) DO UPDATE`) and skip deletes — requires adding a unique constraint on `(farmer_id, crop, year)` (also a migration).
-
-I'll go with option 1 unless you prefer option 2.
-
-## Files touched
-
-- `src/pages/Dashboard.tsx` — add quick action
-- `src/pages/AdminFarmers.tsx` — pencil button on rows
-- `src/components/onboarding/FarmerForm.tsx` — new (extracted from Onboarding)
-- `src/pages/Onboarding.tsx` — thin wrapper
-- `src/pages/EditFarmer.tsx` — new
-- `src/App.tsx` — register `/admin/farmer/:id/edit`
-- `supabase/migrations/...` — extend `crop_yield_history` DELETE policy (option 1)
+## Acceptance check
+- Lists with 1000+ farmers paginate without loading everything client-side.
+- Searching for "smith" finds Smith on any page, not just the current one.
+- An admin can select 10 submitted farmers and verify them in one click; activity log shows 10 verified entries.
+- An enumerator viewing a draft farmer without a National ID sees the Submit button disabled with a clear reason.

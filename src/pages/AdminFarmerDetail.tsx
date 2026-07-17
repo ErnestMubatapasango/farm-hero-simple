@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -19,7 +19,12 @@ import {
   FileEdit,
   History,
   Lock,
+  Pencil,
+  Undo2,
 } from "lucide-react";
+import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
+import { hasAllRequiredDocs } from "@/components/farmer/RequiredDocumentsChecklist";
+import { StatusStepper } from "@/components/farmer/StatusStepper";
 
 interface FarmerDetail {
   id: string;
@@ -60,6 +65,7 @@ interface ActivityRow {
   to_status: string | null;
   notes: string | null;
   created_at: string;
+  actor_name?: string | null;
 }
 
 interface FarmerCrop {
@@ -126,14 +132,18 @@ export default function AdminFarmerDetail() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
+  const [requiredDocsOk, setRequiredDocsOk] = useState(false);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+  const isSuperAdmin = hasAnyRole(["super_admin", "developer"]);
   const isOwner = !!session?.user?.id && farmer?.enrolled_by === session.user.id;
   const editableStatus = farmer?.status === "draft" || farmer?.status === "rejected";
   const canEdit = isAdmin || (hasRole("enumerator") && isOwner && editableStatus);
   const canSubmit = isOwner && editableStatus;
   const canVerifyOrReject = isAdmin && farmer?.status === "submitted";
   const isLocked = farmer?.status === "verified";
+  const canReopen =
+    isSuperAdmin && (farmer?.status === "verified" || farmer?.status === "rejected");
 
   const loadActivity = async (farmerId: string) => {
     const { data } = await supabase
@@ -141,7 +151,32 @@ export default function AdminFarmerDetail() {
       .select("id, actor_id, action, from_status, to_status, notes, created_at")
       .eq("farmer_id", farmerId)
       .order("created_at", { ascending: false });
-    setActivity((data as ActivityRow[]) || []);
+    const rows = (data as ActivityRow[]) || [];
+    // Enrich with actor names
+    const actorIds = Array.from(
+      new Set(rows.map((r) => r.actor_id).filter((v): v is string => !!v))
+    );
+    if (actorIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", actorIds);
+      const nameById = new Map(
+        (profiles || []).map((p) => [p.user_id as string, p.full_name as string | null])
+      );
+      rows.forEach((r) => {
+        r.actor_name = r.actor_id ? nameById.get(r.actor_id) || null : null;
+      });
+    }
+    setActivity(rows);
+  };
+
+  const loadRequiredDocs = async (farmerId: string) => {
+    const { data } = await supabase
+      .from("farmer_documents")
+      .select("document_type, status")
+      .eq("farmer_id", farmerId);
+    setRequiredDocsOk(hasAllRequiredDocs((data as { document_type: string; status: string }[]) || []));
   };
 
   useEffect(() => {
@@ -168,6 +203,7 @@ export default function AdminFarmerDetail() {
       setCrops((cropsRes.data as FarmerCrop[]) || []);
       setYields((yieldRes.data as YieldRow[]) || []);
       await loadActivity(userId);
+      await loadRequiredDocs(userId);
       setLoading(false);
     })();
     return () => {
@@ -244,6 +280,24 @@ export default function AdminFarmerDetail() {
     setUpdating(false);
   };
 
+  const reopen = async () => {
+    if (!farmer) return;
+    if (!window.confirm("Reopen this record and move it back to Submitted for re-review?")) return;
+    setUpdating(true);
+    const { error } = await supabase
+      .from("farmers")
+      .update({ status: "submitted", verified_at: null, verified_by: null })
+      .eq("id", farmer.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Record reopened" });
+      setFarmer((prev) => (prev ? { ...prev, status: "submitted", verified_at: null } : prev));
+      await loadActivity(farmer.id);
+    }
+    setUpdating(false);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -297,6 +351,9 @@ export default function AdminFarmerDetail() {
         </div>
       </div>
 
+      {/* Status stepper */}
+      <StatusStepper status={farmer.status} />
+
       {/* Locked banner */}
       {isLocked && (
         <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-2.5 text-sm text-green-700 dark:text-green-400">
@@ -308,14 +365,21 @@ export default function AdminFarmerDetail() {
       {/* Workflow actions */}
       <div className="flex flex-wrap gap-3">
         {canSubmit && (
-          <button
-            onClick={submitForReview}
-            disabled={updating}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
-          >
-            <Send className="h-4 w-4" />
-            Submit for Review
-          </button>
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={submitForReview}
+              disabled={updating || !requiredDocsOk}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
+            >
+              <Send className="h-4 w-4" />
+              Submit for Review
+            </button>
+            {!requiredDocsOk && (
+              <p className="text-xs text-muted-foreground">
+                Upload National ID and Land Title before submitting.
+              </p>
+            )}
+          </div>
         )}
         {canVerifyOrReject && (
           <>
@@ -338,9 +402,23 @@ export default function AdminFarmerDetail() {
           </>
         )}
         {canEdit && !isLocked && (
-          <span className="text-xs text-muted-foreground self-center">
-            Editing UI coming soon — for now use the onboarding flow.
-          </span>
+          <Link
+            to={`/admin/farmer/${farmer.id}/edit`}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit Farmer
+          </Link>
+        )}
+        {canReopen && (
+          <button
+            onClick={reopen}
+            disabled={updating}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+          >
+            <Undo2 className="h-4 w-4" />
+            Reopen for Review
+          </button>
         )}
       </div>
 
@@ -365,9 +443,12 @@ export default function AdminFarmerDetail() {
               activity.map((a) => (
                 <div key={a.id} className="text-xs border-l-2 border-border pl-3 py-1">
                   <p className="text-foreground capitalize">
-                    {a.action.replace(/_/g, " ")}
+                    <span className="font-medium">
+                      {a.actor_name || (a.actor_id ? "Unknown user" : "System")}
+                    </span>{" "}
+                    <span className="normal-case">{a.action.replace(/_/g, " ")}</span>
                     {a.from_status && a.to_status && (
-                      <span className="text-muted-foreground"> — {a.from_status} → {a.to_status}</span>
+                      <span className="text-muted-foreground normal-case"> — {a.from_status} → {a.to_status}</span>
                     )}
                   </p>
                   {a.notes && <p className="text-muted-foreground mt-0.5">"{a.notes}"</p>}
@@ -529,6 +610,14 @@ export default function AdminFarmerDetail() {
           <InfoRow label="Mobile Money" value={farmer.mobile_money_provider} capitalize />
         </div>
       </div>
+
+      {/* Documents */}
+      <FarmerDocumentsSection
+        farmerId={farmer.id}
+        organizationId={(farmer as any).organization_id ?? ""}
+        canEdit={canEdit && !isLocked}
+        isAdmin={isAdmin}
+      />
 
       {/* Notes */}
       {farmer.notes && (
