@@ -62,14 +62,22 @@ Deno.serve(async (req) => {
 
   const roles = (rolesRows ?? []).map((r) => r.role);
   const isDeveloper = roles.includes("developer");
-  const isSuperAdmin = roles.includes("super_admin");
-  if (!isSuperAdmin && !isDeveloper) return json({ error: "Forbidden" }, 403);
+  const superAdminOrgIds = new Set(
+    (rolesRows ?? [])
+      .filter((r) => r.role === "super_admin" && r.organization_id)
+      .map((r) => r.organization_id as string),
+  );
+  if (!isDeveloper && superAdminOrgIds.size === 0) return json({ error: "Forbidden" }, 403);
+
+  const callerCanActOnOrg = (targetOrgId: string | null | undefined) =>
+    isDeveloper || (!!targetOrgId && superAdminOrgIds.has(targetOrgId));
 
   const orgId = profile?.organization_id;
   if (!orgId && !isDeveloper) return json({ error: "No organization" }, 400);
 
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
   const redirectTo = `${origin}/accept-invite`;
+
 
   if (action === "invite") {
     const email = (body.email ?? "").trim().toLowerCase();
