@@ -1,9 +1,14 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2, Ban } from "lucide-react";
+import { Loader2, Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2, Ban, AlertTriangle, Inbox } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyState } from "@/components/EmptyState";
+import { relativeTime, daysSince } from "@/lib/relative-time";
+
+const STALE_DAYS = 7;
+type FilterKey = "all" | "pending" | "accepted" | "revoked";
 import {
   Select,
   SelectContent,
