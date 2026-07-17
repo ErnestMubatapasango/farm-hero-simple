@@ -85,6 +85,9 @@ Deno.serve(async (req) => {
     if (!email || !["admin", "enumerator"].includes(role)) {
       return json({ error: "email and valid role required" }, 400);
     }
+    // Invite always targets the caller's own org. Developers must have a profile org.
+    if (!orgId) return json({ error: "No organization" }, 400);
+    if (!callerCanActOnOrg(orgId)) return json({ error: "Forbidden" }, 403);
 
     const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { organization_id: orgId, role, invited_by: callerId },
@@ -113,6 +116,7 @@ Deno.serve(async (req) => {
       .eq("id", body.invitation_id)
       .maybeSingle();
     if (!inv) return json({ error: "Invitation not found" }, 404);
+    if (!callerCanActOnOrg(inv.organization_id)) return json({ error: "Forbidden" }, 403);
 
     const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(inv.email, {
       data: { organization_id: inv.organization_id, role: inv.role, invited_by: callerId },
@@ -136,6 +140,7 @@ Deno.serve(async (req) => {
       .eq("id", body.invitation_id)
       .maybeSingle();
     if (!inv) return json({ error: "Invitation not found" }, 404);
+    if (!callerCanActOnOrg(inv.organization_id)) return json({ error: "Forbidden" }, 403);
 
     if (inv.status === "pending") {
       // Hard delete: no profile/role/farmers exist yet.
@@ -145,6 +150,7 @@ Deno.serve(async (req) => {
       await admin.from("invitations").delete().eq("id", body.invitation_id);
       return json({ ok: true });
     }
+
 
     if (inv.status === "accepted") {
       // Soft deactivate: drop role(s), preserve auth user + profile so
