@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Sprout, Eye, EyeOff } from "lucide-react";
+import { Loader2, Sprout, Eye, EyeOff } from "lucide-react";
 
 export default function AcceptInvite() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
@@ -15,29 +16,38 @@ export default function AcceptInvite() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Supabase parses the invite token from the URL hash and sets a session.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let sub: { subscription: { unsubscribe: () => void } } | undefined;
+
+    const markReady = (user: { email?: string | null; user_metadata?: any } | null | undefined) => {
+      if (!user) return;
+      readyRef.current = true;
+      setEmail(user.email ?? "");
+      setFullName((user.user_metadata?.full_name as string) ?? "");
+      setReady(true);
+      if (timer) clearTimeout(timer);
+      sub?.subscription.unsubscribe();
+    };
+
     supabase.auth.getSession().then(({ data }) => {
-      const user = data.session?.user;
-      if (user) {
-        setEmail(user.email ?? "");
-        setFullName((user.user_metadata?.full_name as string) ?? "");
-        setReady(true);
-      } else {
-        // Wait briefly for the hash exchange
-        const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-          if (session?.user) {
-            setEmail(session.user.email ?? "");
-            setFullName((session.user.user_metadata?.full_name as string) ?? "");
-            setReady(true);
-            sub.subscription.unsubscribe();
-          }
-        });
-        setTimeout(() => {
-          if (!ready) setError("This invitation link is invalid or has expired.");
-        }, 3000);
+      if (data.session?.user) {
+        markReady(data.session.user);
+        return;
       }
+      // Wait briefly for the hash exchange
+      const listener = supabase.auth.onAuthStateChange((_e, session) => {
+        if (session?.user) markReady(session.user);
+      });
+      sub = listener.data;
+      timer = setTimeout(() => {
+        if (!readyRef.current) setError("This invitation link is invalid or has expired.");
+      }, 3000);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      sub?.subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,10 +85,15 @@ export default function AcceptInvite() {
         </div>
 
         {!ready && !error && (
-          <p className="text-center text-sm text-muted-foreground">Verifying invitation…</p>
+          <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Verifying invitation…
+          </p>
         )}
 
-        {error && <p className="text-sm text-destructive text-center">{error}</p>}
+        {!ready && error && (
+          <p className="text-sm text-destructive text-center">{error}</p>
+        )}
 
         {ready && (
           <form onSubmit={handleSubmit} className="space-y-4">
