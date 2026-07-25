@@ -51,12 +51,12 @@ const App = () => (
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/analytics" element={<Analytics />} />
-                <Route path="/credit-score" element={<CreditScore />} />
-                <Route path="/credit-score/:farmerId" element={<CreditScoreDetail />} />
                 <Route path="/admin/farmers" element={<AdminFarmers />} />
                 <Route path="/admin/farmer/:userId" element={<AdminFarmerDetail />} />
                 <Route path="/admin/farmer/:userId/edit" element={<EditFarmer />} />
                 <Route element={<AdminRoute />}>
+                  <Route path="/credit-score" element={<CreditScore />} />
+                  <Route path="/credit-score/:farmerId" element={<CreditScoreDetail />} />
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/admin/users" element={<AdminUsers />} />
                   <Route path="/admin/roles" element={<AdminRoles />} />
