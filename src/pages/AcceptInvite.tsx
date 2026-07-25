@@ -85,10 +85,15 @@ export default function AcceptInvite() {
         </div>
 
         {!ready && !error && (
-          <p className="text-center text-sm text-muted-foreground">Verifying invitation…</p>
+          <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Verifying invitation…
+          </p>
         )}
 
-        {error && <p className="text-sm text-destructive text-center">{error}</p>}
+        {!ready && error && (
+          <p className="text-sm text-destructive text-center">{error}</p>
+        )}
 
         {ready && (
           <form onSubmit={handleSubmit} className="space-y-4">
