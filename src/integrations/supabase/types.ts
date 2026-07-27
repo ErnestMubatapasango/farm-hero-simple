@@ -614,6 +614,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_organization: {
+        Args: { _name: string; _slug: string }
+        Returns: string
+      }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_role:
         | {
@@ -664,6 +668,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      save_farmer: {
+        Args: {
+          _crops: Json
+          _farmer_id: string
+          _payload: Json
+          _yields: Json
+        }
+        Returns: string
       }
       set_user_roles: {
         Args: {
