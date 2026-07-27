@@ -67,6 +67,10 @@ Deno.serve(async (req) => {
     return json({ error: "Unauthorized" }, 401);
   }
 
+  if (rateLimited(callerId)) {
+    return json({ error: "Too many requests. Please slow down." }, 429);
+  }
+
   let body: { email?: string; role?: string; action?: string; invitation_id?: string };
   try {
     body = await req.json();
