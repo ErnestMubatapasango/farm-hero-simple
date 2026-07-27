@@ -60,6 +60,7 @@ interface FarmerDetail {
   mobile_money_provider: string | null;
   status: string;
   notes: string | null;
+  rejection_reason: string | null;
   created_at: string;
   verified_at: string | null;
   enrolled_by: string | null;
