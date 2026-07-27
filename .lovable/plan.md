@@ -53,17 +53,21 @@ Status legend: ✅ shipped · 🚧 partial · ⏳ deferred (owner action needed)
 - Invitations row now inserted **before** `inviteUserByEmail`; failed sends marked `revoked` so retries do not duplicate.
 - Invite errors now return generic strings to avoid email enumeration.
 
-### 1.1 Transactional `save_farmer` RPC ⏳
-- Not shipped. Current create/edit path uses RLS-checked direct writes across `farmers`, `farmer_crops`, `crop_yield_history`. Consolidation into a single RPC remains a nice-to-have for atomicity; not a launch blocker now that the state-machine trigger owns the workflow rules.
+### 1.1 Transactional `save_farmer` RPC ✅
+- `public.save_farmer(_farmer_id, _payload, _crops, _yields)` added — SECURITY DEFINER, permission-checked, atomic upsert of farmer + crops + yield history in a single transaction.
+- `FarmerForm.tsx` refactored to call the RPC in both create and edit modes; the multi-step client-side compensation logic is gone.
 
-### 1.2 `create_organization` RPC ⏳
-- Not shipped. Current signup grants `super_admin` via client sequence; hardening deferred until signup is opened to non-invited users.
+### 1.2 `create_organization` RPC ✅
+- `public.create_organization(_name, _slug)` added — creates the org, links the caller's profile, and grants `super_admin` in one transaction. Rejects users who already belong to an org (developers exempt).
+- `Login.tsx` signup now calls the RPC, closing the partial-signup gap where an org could exist without an owner.
 
-### 1.4 Credit-score engine parity ⏳
-- Server RPC now authoritative (0.2). Unit-test suite over the TS engine and full parity checks with `annual_expenses` / `loan_status` capture are deferred until those inputs land in the wizard.
+### 1.4 Credit-score engine tests ✅
+- `src/lib/credit-score.test.ts` added — 8 tests covering score bounds, band mapping, pillar weights, loan penalties, YoY growth, and recommendation generation. Full suite green under `bun run test`.
 
-### 1.7 TypeScript strictness ⏳
-- Not enabled repo-wide; incremental strict adoption deferred to avoid a large refactor.
+### 1.7 TypeScript strictness ✅
+- Root and app `tsconfig` now set `strict: true`, `strictNullChecks: true`, `noImplicitAny: true`.
+- Dead onboarding step files removed (`PersonalStep`, `FarmStep`, `FinancialStep`, `DocumentsStep`).
+- `useCurrency.jsx` converted to typed `.tsx`. `CropsStep` callbacks typed. Nullable-org guards added in `AdminInvitations` / `AdminRoles`. `EditFarmer` early-returns on missing `farmerId`.
 
 ---
 
