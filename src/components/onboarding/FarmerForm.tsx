@@ -145,141 +145,65 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
 
     const livestock = form.primary_livestock;
 
-    const farmerPayload = {
+    const payload = {
       first_name: form.first_name,
       last_name: form.last_name,
-      phone: form.phone || null,
-      email: form.email || null,
-      date_of_birth: form.date_of_birth || null,
-      gender: form.gender || null,
-      national_id: form.national_id || null,
-      region: form.region || null,
-      district: form.district || null,
-      ward: form.ward || null,
-      village: form.village || null,
-      farm_name: form.farm_name || null,
-      farm_size_hectares: form.farm_size_hectares ? parseFloat(form.farm_size_hectares) : null,
+      phone: form.phone,
+      email: form.email,
+      date_of_birth: form.date_of_birth,
+      gender: form.gender,
+      national_id: form.national_id,
+      region: form.region,
+      district: form.district,
+      ward: form.ward,
+      village: form.village,
+      farm_name: form.farm_name,
+      farm_size_hectares: form.farm_size_hectares,
       primary_crops: selectedCrops,
       primary_livestock: livestock,
-      annual_income: form.annual_income ? parseFloat(form.annual_income) : null,
+      annual_income: form.annual_income,
       has_bank_account: form.has_bank_account,
-      bank_name: form.bank_name || null,
-      mobile_money_provider: form.mobile_money_provider || null,
-      notes: form.notes || null,
+      bank_name: form.bank_name,
+      mobile_money_provider: form.mobile_money_provider,
+      notes: form.notes,
     };
 
-    let resolvedFarmerId = farmerId;
+    const cropsPayload = selectedCrops.map((crop, idx) => ({
+      crop,
+      position: idx + 1,
+      farming_method: form.cropInfo.farmingMethods[crop] || null,
+    }));
 
-    if (mode === "create") {
-      const { data: farmer, error: farmerError } = await supabase
-        .from("farmers")
-        .insert({
-          ...farmerPayload,
-          organization_id: organizationId,
-          enrolled_by: session.user.id,
-          status: "draft",
-        })
-        .select("id")
-        .single();
-
-      if (farmerError || !farmer) {
-        toast({ title: "Error", description: farmerError?.message ?? "Could not create farmer", variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
-      resolvedFarmerId = farmer.id;
-    } else {
-      if (!farmerId) {
-        toast({ title: "Error", description: "Missing farmer id", variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
-      const { error: updateError } = await supabase
-        .from("farmers")
-        .update(farmerPayload)
-        .eq("id", farmerId);
-      if (updateError) {
-        toast({ title: "Error updating farmer", description: updateError.message, variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
-
-      // Replace crops + yields
-      const { error: delCropsErr } = await supabase.from("farmer_crops").delete().eq("farmer_id", farmerId);
-      if (delCropsErr) {
-        toast({ title: "Error updating crops", description: delCropsErr.message, variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
-      const { error: delYieldsErr } = await supabase.from("crop_yield_history").delete().eq("farmer_id", farmerId);
-      if (delYieldsErr) {
-        toast({ title: "Error updating yields", description: delYieldsErr.message, variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
-    }
-
-    if (!resolvedFarmerId) {
-      setSubmitting(false);
-      return;
-    }
-
-    if (selectedCrops.length > 0) {
-      const cropsRows = selectedCrops.map((crop, idx) => ({
-        farmer_id: resolvedFarmerId!,
-        organization_id: organizationId,
-        crop,
-        position: idx + 1,
-        farming_method: form.cropInfo.farmingMethods[crop] || null,
-      }));
-
-      const { error: cropsError } = await supabase.from("farmer_crops").insert(cropsRows);
-      if (cropsError) {
-        if (mode === "create") {
-          await supabase.from("farmers").delete().eq("id", resolvedFarmerId);
-        }
-        toast({ title: "Error saving crops", description: cropsError.message, variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
-    }
-
-    const yieldRows: Array<{
-      farmer_id: string;
-      organization_id: string;
-      crop: string;
-      year: number;
-      yield_kg: number | null;
-      revenue_usd: number | null;
-    }> = [];
+    const yieldsPayload: Array<{ crop: string; year: number; yield_kg: string; revenue_usd: string }> = [];
     for (const crop of selectedCrops) {
       for (const year of [previousYear, currentYear]) {
         const entry = form.yieldHistory[`${crop}_${year}`];
         if (!entry) continue;
-        const y = entry.yield ? parseFloat(entry.yield) : null;
-        const r = entry.revenue ? parseFloat(entry.revenue) : null;
-        if (y === null && r === null) continue;
-        yieldRows.push({
-          farmer_id: resolvedFarmerId,
-          organization_id: organizationId,
+        if (!entry.yield && !entry.revenue) continue;
+        yieldsPayload.push({
           crop,
           year,
-          yield_kg: y,
-          revenue_usd: r,
+          yield_kg: entry.yield || "",
+          revenue_usd: entry.revenue || "",
         });
       }
     }
 
-    if (yieldRows.length > 0) {
-      const { error: yieldError } = await supabase.from("crop_yield_history").insert(yieldRows);
-      if (yieldError) {
-        if (mode === "create") {
-          await supabase.from("farmers").delete().eq("id", resolvedFarmerId);
-        }
-        toast({ title: "Error saving yield history", description: yieldError.message, variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
+    const { data: resolvedFarmerId, error: rpcError } = await supabase.rpc("save_farmer", {
+      _farmer_id: mode === "edit" ? farmerId ?? null : null,
+      _payload: payload as any,
+      _crops: cropsPayload as any,
+      _yields: yieldsPayload as any,
+    });
+
+    if (rpcError || !resolvedFarmerId) {
+      toast({
+        title: mode === "edit" ? "Error updating farmer" : "Error creating farmer",
+        description: rpcError?.message ?? "Unknown error",
+        variant: "destructive",
+      });
+      setSubmitting(false);
+      return;
     }
 
     if (mode === "create") {
