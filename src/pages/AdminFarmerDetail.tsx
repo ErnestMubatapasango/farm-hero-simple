@@ -60,6 +60,7 @@ interface FarmerDetail {
   mobile_money_provider: string | null;
   status: string;
   notes: string | null;
+  rejection_reason: string | null;
   created_at: string;
   verified_at: string | null;
   enrolled_by: string | null;
@@ -285,13 +286,13 @@ export default function AdminFarmerDetail() {
     setUpdating(true);
     const { error } = await supabase
       .from("farmers")
-      .update({ status: "rejected", notes: note })
+      .update({ status: "rejected", rejection_reason: note })
       .eq("id", farmer.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Farmer rejected" });
-      setFarmer((prev) => (prev ? { ...prev, status: "rejected", notes: note } : prev));
+      setFarmer((prev) => (prev ? { ...prev, status: "rejected", rejection_reason: note } : prev));
       setRejectOpen(false);
       setRejectReason("");
       await loadActivity(farmer.id);
@@ -411,7 +412,7 @@ export default function AdminFarmerDetail() {
               Verify Farmer
             </button>
             <button
-              onClick={() => { setRejectReason(farmer.notes || ""); setRejectOpen(true); }}
+              onClick={() => { setRejectReason(farmer.rejection_reason || ""); setRejectOpen(true); }}
               disabled={updating}
               className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
             >
@@ -687,6 +688,14 @@ export default function AdminFarmerDetail() {
         canEdit={canEdit && !isLocked}
         isAdmin={isAdmin}
       />
+
+      {/* Rejection reason (visible only when set) */}
+      {farmer.rejection_reason && (
+        <div className="kyf-card p-5 space-y-2 border-destructive/40">
+          <p className="text-sm font-semibold text-destructive">Rejection reason</p>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{farmer.rejection_reason}</p>
+        </div>
+      )}
 
       {/* Notes */}
       {farmer.notes && (

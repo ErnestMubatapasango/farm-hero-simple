@@ -1,20 +1,51 @@
 // Invite a user to the caller's organization via Supabase Auth.
-// Caller must be authenticated and have super_admin or developer role.
+// Caller must be authenticated (JWT verified by the gateway) and hold
+// super_admin or developer role for the target org.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// Allowed origins for CORS. Add production domain(s) as needed.
+const ALLOWED_ORIGINS = [
+  "http://localhost:8080",
+  "http://localhost:5173",
+  // Lovable preview + published URLs share this suffix
+];
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+function corsFor(origin: string | null): Record<string, string> {
+  const allow =
+    origin &&
+    (ALLOWED_ORIGINS.includes(origin) ||
+      origin.endsWith(".lovable.app") ||
+      origin.endsWith(".lovableproject.com"))
+      ? origin
+      : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
+
+// Very small in-memory rate limiter (per caller id). Resets on cold start.
+const rateWindow = new Map<string, number[]>();
+const RATE_LIMIT = 20; // requests
+const RATE_WINDOW_MS = 60_000;
+function rateLimited(callerId: string): boolean {
+  const now = Date.now();
+  const arr = (rateWindow.get(callerId) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  arr.push(now);
+  rateWindow.set(callerId, arr);
+  return arr.length > RATE_LIMIT;
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsFor(req.headers.get("origin"));
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
@@ -34,6 +65,10 @@ Deno.serve(async (req) => {
     if (!callerId) throw new Error("No sub claim");
   } catch {
     return json({ error: "Unauthorized" }, 401);
+  }
+
+  if (rateLimited(callerId)) {
+    return json({ error: "Too many requests. Please slow down." }, 429);
   }
 
   let body: { email?: string; role?: string; action?: string; invitation_id?: string };
@@ -85,25 +120,45 @@ Deno.serve(async (req) => {
     if (!email || !["admin", "enumerator"].includes(role)) {
       return json({ error: "email and valid role required" }, 400);
     }
-    // Invite always targets the caller's own org. Developers must have a profile org.
     if (!orgId) return json({ error: "No organization" }, 400);
     if (!callerCanActOnOrg(orgId)) return json({ error: "Forbidden" }, 403);
+
+    // Insert the invitations row FIRST so acceptance logic has a target even
+    // if the email dispatch flakes. The unique constraint on (email, org)
+    // isn't enforced yet; we tolerate a soft duplicate here.
+    const { data: invRow, error: rowErr } = await admin
+      .from("invitations")
+      .insert({
+        organization_id: orgId,
+        email,
+        role,
+        invited_by: callerId,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (rowErr) return json({ error: "Invitation could not be recorded" }, 400);
 
     const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { organization_id: orgId, role, invited_by: callerId },
       redirectTo,
     });
-    if (inviteErr) return json({ error: inviteErr.message }, 400);
+    if (inviteErr) {
+      // Mark row as failed so admins can retry via "resend" without a duplicate.
+      await admin
+        .from("invitations")
+        .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_by: callerId })
+        .eq("id", invRow.id);
+      // Generic message — avoid enumerating existing emails.
+      return json({ error: "Invitation could not be sent" }, 400);
+    }
 
-    const { error: rowErr } = await admin.from("invitations").insert({
-      organization_id: orgId,
-      email,
-      role,
-      invited_by: callerId,
-      invited_user_id: invited.user?.id ?? null,
-      status: "pending",
-    });
-    if (rowErr) return json({ error: rowErr.message }, 400);
+    if (invited.user?.id) {
+      await admin
+        .from("invitations")
+        .update({ invited_user_id: invited.user.id })
+        .eq("id", invRow.id);
+    }
 
     return json({ ok: true });
   }
