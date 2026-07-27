@@ -277,18 +277,23 @@ export default function AdminFarmerDetail() {
 
   const reject = async () => {
     if (!farmer) return;
-    const note = window.prompt("Rejection reason (will be visible to enumerator):", farmer.notes || "");
-    if (note === null) return;
+    const note = rejectReason.trim();
+    if (!note) {
+      toast({ title: "Reason required", description: "Please provide a rejection reason.", variant: "destructive" });
+      return;
+    }
     setUpdating(true);
     const { error } = await supabase
       .from("farmers")
-      .update({ status: "rejected", notes: note || null })
+      .update({ status: "rejected", notes: note })
       .eq("id", farmer.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Farmer rejected" });
-      setFarmer((prev) => (prev ? { ...prev, status: "rejected", notes: note || null } : prev));
+      setFarmer((prev) => (prev ? { ...prev, status: "rejected", notes: note } : prev));
+      setRejectOpen(false);
+      setRejectReason("");
       await loadActivity(farmer.id);
     }
     setUpdating(false);
@@ -296,7 +301,6 @@ export default function AdminFarmerDetail() {
 
   const reopen = async () => {
     if (!farmer) return;
-    if (!window.confirm("Reopen this record and move it back to Submitted for re-review?")) return;
     setUpdating(true);
     const { error } = await supabase
       .from("farmers")
@@ -307,6 +311,7 @@ export default function AdminFarmerDetail() {
     } else {
       toast({ title: "Record reopened" });
       setFarmer((prev) => (prev ? { ...prev, status: "submitted", verified_at: null } : prev));
+      setReopenOpen(false);
       await loadActivity(farmer.id);
     }
     setUpdating(false);
