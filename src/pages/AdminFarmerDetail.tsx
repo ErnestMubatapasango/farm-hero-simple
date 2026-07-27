@@ -431,7 +431,7 @@ export default function AdminFarmerDetail() {
         )}
         {canReopen && (
           <button
-            onClick={reopen}
+            onClick={() => setReopenOpen(true)}
             disabled={updating}
             className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
           >
@@ -440,6 +440,56 @@ export default function AdminFarmerDetail() {
           </button>
         )}
       </div>
+
+      {/* Reject dialog */}
+      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject this farmer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Provide a reason. This will be visible to the enumerator.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Reason for rejection…"
+            rows={4}
+            autoFocus
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); reject(); }}
+              disabled={updating || !rejectReason.trim()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Reject Farmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reopen dialog */}
+      <AlertDialog open={reopenOpen} onOpenChange={setReopenOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reopen for review?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This moves the record back to Submitted so it can be re-reviewed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); reopen(); }}
+              disabled={updating}
+            >
+              Reopen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Activity log */}
       <div className="kyf-card p-5 space-y-3">
