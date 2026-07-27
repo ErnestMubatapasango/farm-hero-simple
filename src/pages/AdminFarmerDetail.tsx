@@ -411,7 +411,7 @@ export default function AdminFarmerDetail() {
               Verify Farmer
             </button>
             <button
-              onClick={reject}
+              onClick={() => { setRejectReason(farmer.notes || ""); setRejectOpen(true); }}
               disabled={updating}
               className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
             >
