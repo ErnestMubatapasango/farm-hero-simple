@@ -120,25 +120,45 @@ Deno.serve(async (req) => {
     if (!email || !["admin", "enumerator"].includes(role)) {
       return json({ error: "email and valid role required" }, 400);
     }
-    // Invite always targets the caller's own org. Developers must have a profile org.
     if (!orgId) return json({ error: "No organization" }, 400);
     if (!callerCanActOnOrg(orgId)) return json({ error: "Forbidden" }, 403);
+
+    // Insert the invitations row FIRST so acceptance logic has a target even
+    // if the email dispatch flakes. The unique constraint on (email, org)
+    // isn't enforced yet; we tolerate a soft duplicate here.
+    const { data: invRow, error: rowErr } = await admin
+      .from("invitations")
+      .insert({
+        organization_id: orgId,
+        email,
+        role,
+        invited_by: callerId,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (rowErr) return json({ error: "Invitation could not be recorded" }, 400);
 
     const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { organization_id: orgId, role, invited_by: callerId },
       redirectTo,
     });
-    if (inviteErr) return json({ error: inviteErr.message }, 400);
+    if (inviteErr) {
+      // Mark row as failed so admins can retry via "resend" without a duplicate.
+      await admin
+        .from("invitations")
+        .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_by: callerId })
+        .eq("id", invRow.id);
+      // Generic message — avoid enumerating existing emails.
+      return json({ error: "Invitation could not be sent" }, 400);
+    }
 
-    const { error: rowErr } = await admin.from("invitations").insert({
-      organization_id: orgId,
-      email,
-      role,
-      invited_by: callerId,
-      invited_user_id: invited.user?.id ?? null,
-      status: "pending",
-    });
-    if (rowErr) return json({ error: rowErr.message }, 400);
+    if (invited.user?.id) {
+      await admin
+        .from("invitations")
+        .update({ invited_user_id: invited.user.id })
+        .eq("id", invRow.id);
+    }
 
     return json({ ok: true });
   }
