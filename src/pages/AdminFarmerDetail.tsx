@@ -144,6 +144,9 @@ export default function AdminFarmerDetail() {
   const [updating, setUpdating] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [requiredDocsOk, setRequiredDocsOk] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [reopenOpen, setReopenOpen] = useState(false);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
   const isSuperAdmin = hasAnyRole(["super_admin", "developer"]);
