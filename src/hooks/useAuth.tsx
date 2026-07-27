@@ -37,14 +37,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session, fetchRolesAndOrg]);
 
+  // A user is treated as revoked when they hold NO active roles. Historical
+  // "revoked" invitation rows are not authoritative — a re-invited user gets
+  // fresh roles inserted and should regain access.
   const checkRevoked = useCallback(async (userId: string) => {
     const { data } = await supabase
-      .from("invitations")
-      .select("id")
-      .eq("invited_user_id", userId)
-      .eq("status", "revoked")
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
       .limit(1);
-    if (data && data.length > 0) {
+    if (!data || data.length === 0) {
+      // No roles → either never accepted an invite, or was fully revoked.
+      // The server's RLS will already deny data reads; sign out as UX sugar.
       await supabase.auth.signOut();
       return true;
     }
