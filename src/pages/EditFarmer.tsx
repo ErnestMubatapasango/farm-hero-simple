@@ -19,6 +19,7 @@ export default function EditFarmer() {
     let cancelled = false;
 
     async function load() {
+      if (!farmerId) return;
       setLoading(true);
       const [{ data: farmer }, { data: crops }, { data: yields }] = await Promise.all([
         supabase.from("farmers").select("*").eq("id", farmerId).maybeSingle(),

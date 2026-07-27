@@ -64,7 +64,7 @@ export default function AdminInvitations() {
       .from("invitations")
       .select("id, email, role, status, created_at, accepted_at, invited_user_id, revoked_at, revoked_by")
       .order("created_at", { ascending: false });
-    if (!hasRole("developer")) {
+    if (!hasRole("developer") && organizationId) {
       query = query.eq("organization_id", organizationId);
     }
     const { data } = await query;

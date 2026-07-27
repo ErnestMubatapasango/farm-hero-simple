@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -13,20 +13,30 @@ const CURRENCIES = {
   XOF: { symbol: "CFA", name: "West African CFA", rate: 597 },
   TZS: { symbol: "TSh", name: "Tanzanian Shilling", rate: 2580 },
   UGX: { symbol: "USh", name: "Ugandan Shilling", rate: 3700 },
+} as const;
+
+type CurrencyCode = keyof typeof CURRENCIES;
+
+type CurrencyContextValue = {
+  currency: CurrencyCode;
+  setCurrency: (code: CurrencyCode) => void | Promise<void>;
+  convert: (amount: number | string) => number;
+  format: (amount: number | string) => string;
+  currencies: typeof CURRENCIES;
 };
 
-const CurrencyContext = createContext({
+const CurrencyContext = createContext<CurrencyContextValue>({
   currency: "USD",
   setCurrency: () => {},
-  convert: (amount) => amount,
+  convert: (amount) => Number(amount),
   format: (amount) => `$ ${Number(amount).toLocaleString()}`,
   currencies: CURRENCIES,
 });
 
-export function CurrencyProvider({ children }) {
+export function CurrencyProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const userId = session?.user?.id;
-  const [currency, setCurrencyState] = useState("USD");
+  const [currency, setCurrencyState] = useState<CurrencyCode>("USD");
 
   useEffect(() => {
     if (!userId) return;
@@ -36,11 +46,12 @@ export function CurrencyProvider({ children }) {
       .eq("user_id", userId)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.preferred_currency) setCurrencyState(data.preferred_currency);
+        const pref = data?.preferred_currency as CurrencyCode | undefined;
+        if (pref && pref in CURRENCIES) setCurrencyState(pref);
       });
   }, [userId]);
 
-  const setCurrency = async (code) => {
+  const setCurrency = async (code: CurrencyCode) => {
     setCurrencyState(code);
     if (userId) {
       await supabase
@@ -50,14 +61,14 @@ export function CurrencyProvider({ children }) {
     }
   };
 
-  const convert = (amountInGHS) => {
-    const rate = CURRENCIES[currency]?.rate || 1;
-    return Number(amountInGHS) * rate;
+  const convert = (amount: number | string) => {
+    const rate = CURRENCIES[currency]?.rate ?? 1;
+    return Number(amount) * rate;
   };
 
-  const format = (amountInGHS) => {
-    const converted = convert(amountInGHS);
-    const sym = CURRENCIES[currency]?.symbol || currency;
+  const format = (amount: number | string) => {
+    const converted = convert(amount);
+    const sym = CURRENCIES[currency]?.symbol ?? currency;
     return `${sym} ${converted.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
   };
 

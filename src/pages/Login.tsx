@@ -59,21 +59,16 @@ export default function Login() {
       }
 
       const slug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const { data: org, error: orgError } = await supabase
-        .from("organizations")
-        .insert({ name: orgName, slug, created_by: userId })
-        .select("id")
-        .single();
-      if (orgError) throw orgError;
+      const { error: rpcError } = await supabase.rpc("create_organization", {
+        _name: orgName,
+        _slug: slug,
+      });
+      if (rpcError) throw rpcError;
 
       await supabase
         .from("profiles")
-        .update({ organization_id: org.id, full_name: fullName })
+        .update({ full_name: fullName })
         .eq("user_id", userId);
-
-      await supabase
-        .from("user_roles")
-        .insert({ user_id: userId, organization_id: org.id, role: "super_admin" });
 
       setMessage("Organization created! Check your email to confirm your account, then sign in.");
     } catch (err: any) {
