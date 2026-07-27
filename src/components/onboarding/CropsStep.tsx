@@ -23,20 +23,27 @@ const farmingMethods = [
 const currentYear = new Date().getFullYear();
 const previousYear = currentYear - 1;
 
-export default function CropsStep({ cropInfo, yieldHistory, setFormData, errors = {} }: any) {
+type CropsStepProps = {
+  cropInfo: { primaryCrop: string; secondaryCrop: string; farmingMethods: Record<string, string> };
+  yieldHistory: Record<string, { yield: string; revenue: string }>;
+  setFormData: (updater: (prev: any) => any) => void;
+  errors?: Record<string, unknown>;
+};
+
+export default function CropsStep({ cropInfo, yieldHistory, setFormData, errors = {} }: CropsStepProps) {
   const [expandedCrop, setExpandedCrop] = useState<string | null>(null);
   const errCls = (key: string) =>
     errors[key] ? "border-destructive ring-1 ring-destructive/30 focus-visible:ring-destructive" : "";
 
-  function handleCropChange(name, value) {
-    setFormData((prev) => ({
+  function handleCropChange(name: string, value: string) {
+    setFormData((prev: any) => ({
       ...prev,
       cropInfo: { ...prev.cropInfo, [name]: value },
     }));
   }
 
-  function handleFarmingMethodChange(crop, value) {
-    setFormData((prev) => {
+  function handleFarmingMethodChange(crop: string, value: string) {
+    setFormData((prev: any) => {
       const methods = typeof prev.cropInfo.farmingMethods === "object" && prev.cropInfo.farmingMethods !== null
         ? { ...prev.cropInfo.farmingMethods }
         : {};
@@ -46,11 +53,12 @@ export default function CropsStep({ cropInfo, yieldHistory, setFormData, errors 
   }
 
   const formatter = new Intl.NumberFormat("en-US");
-  const formatNumber = (value) => (!value ? "" : formatter.format(value));
+  const formatNumber = (value: string | number | undefined | null) =>
+    !value ? "" : formatter.format(Number(value));
 
-  function handleYieldChange(crop, year, field, value) {
+  function handleYieldChange(crop: string, year: number, field: "yield" | "revenue", value: string) {
     const key = `${crop}_${year}`;
-    setFormData((prev) => {
+    setFormData((prev: any) => {
       const updated = { ...prev.yieldHistory };
       if (!updated[key]) updated[key] = { yield: "", revenue: "" };
       updated[key] = { ...updated[key], [field]: value };

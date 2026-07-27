@@ -20,7 +20,7 @@ export default function AdminRoles() {
     async function load() {
       setLoading(true);
       let query = supabase.from("user_roles").select("id, user_id, role, created_at");
-      if (!hasRole("developer")) {
+      if (!hasRole("developer") && organizationId) {
         query = query.eq("organization_id", organizationId);
       }
       const { data } = await query;

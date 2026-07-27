@@ -189,12 +189,13 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
       }
     }
 
-    const { data: resolvedFarmerId, error: rpcError } = await supabase.rpc("save_farmer", {
+    const { data: resolvedFarmerIdRaw, error: rpcError } = await supabase.rpc("save_farmer", {
       _farmer_id: mode === "edit" ? farmerId ?? null : null,
       _payload: payload as any,
       _crops: cropsPayload as any,
       _yields: yieldsPayload as any,
     });
+    const resolvedFarmerId = resolvedFarmerIdRaw as string | null;
 
     if (rpcError || !resolvedFarmerId) {
       toast({
