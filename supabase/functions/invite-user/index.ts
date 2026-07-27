@@ -1,20 +1,51 @@
 // Invite a user to the caller's organization via Supabase Auth.
-// Caller must be authenticated and have super_admin or developer role.
+// Caller must be authenticated (JWT verified by the gateway) and hold
+// super_admin or developer role for the target org.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// Allowed origins for CORS. Add production domain(s) as needed.
+const ALLOWED_ORIGINS = [
+  "http://localhost:8080",
+  "http://localhost:5173",
+  // Lovable preview + published URLs share this suffix
+];
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+function corsFor(origin: string | null): Record<string, string> {
+  const allow =
+    origin &&
+    (ALLOWED_ORIGINS.includes(origin) ||
+      origin.endsWith(".lovable.app") ||
+      origin.endsWith(".lovableproject.com"))
+      ? origin
+      : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
+
+// Very small in-memory rate limiter (per caller id). Resets on cold start.
+const rateWindow = new Map<string, number[]>();
+const RATE_LIMIT = 20; // requests
+const RATE_WINDOW_MS = 60_000;
+function rateLimited(callerId: string): boolean {
+  const now = Date.now();
+  const arr = (rateWindow.get(callerId) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  arr.push(now);
+  rateWindow.set(callerId, arr);
+  return arr.length > RATE_LIMIT;
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsFor(req.headers.get("origin"));
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
