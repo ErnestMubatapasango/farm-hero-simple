@@ -57,5 +57,5 @@ export async function fetchStoredScore(farmerId: string): Promise<PersistedScore
     .select("*")
     .eq("farmer_id", farmerId)
     .maybeSingle();
-  return (data as PersistedScore | null) ?? null;
+  return (data as unknown as PersistedScore | null) ?? null;
 }
