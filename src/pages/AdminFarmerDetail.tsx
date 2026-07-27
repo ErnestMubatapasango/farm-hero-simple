@@ -689,6 +689,14 @@ export default function AdminFarmerDetail() {
         isAdmin={isAdmin}
       />
 
+      {/* Rejection reason (visible only when set) */}
+      {farmer.rejection_reason && (
+        <div className="kyf-card p-5 space-y-2 border-destructive/40">
+          <p className="text-sm font-semibold text-destructive">Rejection reason</p>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{farmer.rejection_reason}</p>
+        </div>
+      )}
+
       {/* Notes */}
       {farmer.notes && (
         <div className="kyf-card p-5 space-y-2">
