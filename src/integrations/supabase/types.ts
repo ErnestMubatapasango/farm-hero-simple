@@ -21,6 +21,7 @@ export type Database = {
           computed_at: string
           computed_by: string | null
           created_at: string
+          engine_version: string
           farmer_id: string
           id: string
           inputs_hash: string | null
@@ -35,6 +36,7 @@ export type Database = {
           computed_at?: string
           computed_by?: string | null
           created_at?: string
+          engine_version?: string
           farmer_id: string
           id?: string
           inputs_hash?: string | null
@@ -49,6 +51,7 @@ export type Database = {
           computed_at?: string
           computed_by?: string | null
           created_at?: string
+          engine_version?: string
           farmer_id?: string
           id?: string
           inputs_hash?: string | null
@@ -57,7 +60,15 @@ export type Database = {
           score?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "credit_scores_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: true
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crop_yield_history: {
         Row: {
@@ -140,7 +151,15 @@ export type Database = {
           organization_id?: string
           to_status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "farmer_activity_log_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       farmer_crops: {
         Row: {
@@ -235,7 +254,15 @@ export type Database = {
           verified_at?: string | null
           verified_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "farmer_documents_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       farmers: {
         Row: {
@@ -261,6 +288,7 @@ export type Database = {
           primary_crops: string[] | null
           primary_livestock: string[] | null
           region: string | null
+          rejection_reason: string | null
           status: string
           submitted_at: string | null
           updated_at: string
@@ -293,6 +321,7 @@ export type Database = {
           primary_crops?: string[] | null
           primary_livestock?: string[] | null
           region?: string | null
+          rejection_reason?: string | null
           status?: string
           submitted_at?: string | null
           updated_at?: string
@@ -325,6 +354,7 @@ export type Database = {
           primary_crops?: string[] | null
           primary_livestock?: string[] | null
           region?: string | null
+          rejection_reason?: string | null
           status?: string
           submitted_at?: string | null
           updated_at?: string
@@ -560,6 +590,30 @@ export type Database = {
       }
       can_edit_farmer: { Args: { _farmer_id: string }; Returns: boolean }
       can_view_farmer: { Args: { _farmer_id: string }; Returns: boolean }
+      compute_credit_score: {
+        Args: { _farmer_id: string }
+        Returns: {
+          band: string
+          breakdown: Json
+          computed_at: string
+          computed_by: string | null
+          created_at: string
+          engine_version: string
+          farmer_id: string
+          id: string
+          inputs_hash: string | null
+          organization_id: string
+          recommendations: Json
+          score: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "credit_scores"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_role:
         | {
