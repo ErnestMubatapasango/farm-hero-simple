@@ -286,13 +286,13 @@ export default function AdminFarmerDetail() {
     setUpdating(true);
     const { error } = await supabase
       .from("farmers")
-      .update({ status: "rejected", notes: note })
+      .update({ status: "rejected", rejection_reason: note })
       .eq("id", farmer.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Farmer rejected" });
-      setFarmer((prev) => (prev ? { ...prev, status: "rejected", notes: note } : prev));
+      setFarmer((prev) => (prev ? { ...prev, status: "rejected", rejection_reason: note } : prev));
       setRejectOpen(false);
       setRejectReason("");
       await loadActivity(farmer.id);
