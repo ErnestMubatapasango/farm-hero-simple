@@ -25,6 +25,17 @@ import {
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
 import { hasAllRequiredDocs } from "@/components/farmer/RequiredDocumentsChecklist";
 import { StatusStepper } from "@/components/farmer/StatusStepper";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface FarmerDetail {
   id: string;
