@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Typecheck & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Unit tests
+        run: bun run test
+
+  migrations:
+    name: Replay migrations on shadow DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shadow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply pgcrypto + digest helpers
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d shadow -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+      - name: Apply migrations in order
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -e
+          shopt -s nullglob
+          for f in supabase/migrations/*.sql; do
+            echo "-- Applying $f --"
+            psql -h localhost -U postgres -d shadow -v ON_ERROR_STOP=1 -f "$f"
+          done
