@@ -71,12 +71,21 @@ Status legend: ✅ shipped · 🚧 partial · ⏳ deferred (owner action needed)
 
 ---
 
-## Phase 2 — Test, Observe, Comply ⏳
+## Phase 2 — Test, Observe, Comply 🚧
 
-Deferred — these require owner-side setup:
-- Vitest / pgTAP / Playwright suites and a GitHub Actions CI workflow.
-- Sentry SDK + Supabase log drains + PITR restore drill.
-- CDPA consent step, retention policy, and read-audit RPC for signed URLs.
+### 2.1 In-repo tests ✅
+- `src/lib/csv.test.ts`, `src/lib/relative-time.test.ts`, `src/lib/observability.test.ts` added — 20 vitest cases total (with the existing credit-score suite), all green under `bun run test`.
+
+### 2.2 CI workflow ✅
+- `.github/workflows/ci.yml` added: two jobs — `verify` (bun install → `tsc --noEmit` → `bun run test`) and `migrations` (postgres:15 service, applies `supabase/migrations/*.sql` in order against a shadow DB with `ON_ERROR_STOP=1`).
+- ⏳ Owner needs to enable Actions on the repo; no secrets required for the current jobs.
+
+### 2.3 Observability scaffolding ✅
+- `src/lib/observability.ts` — dependency-free shim exposing `captureError` / `captureWarning` / `captureInfo`. Always logs locally; forwards to `window.Sentry` when `VITE_SENTRY_DSN` is set and the SDK has been loaded.
+- ⏳ Owner action: `bun add @sentry/react`, initialise in `main.tsx`, set `VITE_SENTRY_DSN` + configure Supabase log drains + run a PITR restore drill.
+
+### 2.4 CDPA consent + retention ⏳
+- Blocked on owner-provided consent wording and retention window. Plan: add `farmers.consent_given_at` + `consent_version`, a wizard checkbox, and a `log_document_access(_farmer_id, _path)` RPC for audited signed-URL reads.
 
 ---
 
