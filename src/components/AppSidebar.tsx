@@ -158,7 +158,7 @@ export function AppSidebar() {
             await supabase.auth.signOut();
             navigate("/login");
           }}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive w-full"
+          className={`flex items-center gap-3 rounded-lg text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive w-full ${collapsed ? "justify-center px-2 py-2" : "px-3 py-2.5"}`}
         >
           <LogOut className="h-4.5 w-4.5 shrink-0" />
           {!collapsed && <span>Logout</span>}
