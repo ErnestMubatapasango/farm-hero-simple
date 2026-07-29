@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { syncManager } from "@/lib/offline/syncManager";
+import { completePendingOrg } from "@/lib/pendingOrg";
 
 type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
 
