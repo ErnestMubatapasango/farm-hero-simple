@@ -7,7 +7,12 @@ export function useSyncStatus(): SyncState & {
   discardFailed: (id: string) => Promise<void>;
 } {
   const [state, setState] = useState<SyncState>(syncManager.getState());
-  useEffect(() => syncManager.subscribe(setState), []);
+  useEffect(() => {
+    const unsub = syncManager.subscribe(setState);
+    return () => {
+      unsub();
+    };
+  }, []);
   return {
     ...state,
     syncNow: () => syncManager.sync(true),

@@ -184,7 +184,7 @@ class SyncManager {
     const serverFarmerId = isLocal ? null : p.farmerId;
 
     const { data, error } = await supabase.rpc("save_farmer", {
-      _farmer_id: serverFarmerId,
+      _farmer_id: (serverFarmerId ?? null) as any,
       _payload: p.payload as any,
       _crops: p.crops as any,
       _yields: p.yields as any,

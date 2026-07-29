@@ -40,13 +40,12 @@ export async function saveFarmer(args: SaveFarmerArgs): Promise<SaveFarmerResult
 
   if (isOnline()) {
     const { data, error } = await supabase.rpc("save_farmer", {
-      _farmer_id: farmerId,
+      _farmer_id: (farmerId ?? null) as any,
       _payload: payload as any,
       _crops: crops as any,
       _yields: yields as any,
     });
     if (error || !data) {
-      // Fall through to queueing if the failure was network-ish
       const msg = (error?.message || "").toLowerCase();
       const looksNetwork = msg.includes("fetch") || msg.includes("network");
       if (!looksNetwork) throw error;
