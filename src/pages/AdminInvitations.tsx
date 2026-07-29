@@ -349,6 +349,7 @@ export default function AdminInvitations() {
             const isAccepted = inv.status === "accepted";
             const isRevoked = inv.status === "revoked";
             const isPending = inv.status === "pending";
+            const isFailed = inv.status === "failed";
             const stale = isPending && daysSince(inv.created_at) >= STALE_DAYS;
             return (
               <div key={inv.id} className="flex items-center justify-between px-5 py-4">
@@ -361,6 +362,12 @@ export default function AdminInvitations() {
                         <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 text-yellow-600 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
                           <AlertTriangle className="h-3 w-3" />
                           Stale · resend
+                        </span>
+                      )}
+                      {isFailed && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                          <AlertTriangle className="h-3 w-3" />
+                          Send failed
                         </span>
                       )}
                     </div>
@@ -379,14 +386,19 @@ export default function AdminInvitations() {
                         {revokerName ? ` by ${revokerName}` : ""}
                       </p>
                     )}
+                    {isFailed && inv.last_error && (
+                      <p className="text-xs text-destructive mt-1 normal-case">
+                        {inv.last_error}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {isPending && isSuperAdmin && (
+                  {(isPending || isFailed) && isSuperAdmin && (
                     <button
                       onClick={() => handleResend(inv.id)}
                       className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      title="Resend invitation email"
+                      title={isFailed ? "Retry sending" : "Resend invitation email"}
                     >
                       <RefreshCw className="h-4 w-4" />
                     </button>
