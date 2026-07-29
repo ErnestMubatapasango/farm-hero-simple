@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { relativeTime, daysSince } from "@/lib/relative-time";
 
 const STALE_DAYS = 7;
-type FilterKey = "all" | "pending" | "accepted" | "revoked";
+type FilterKey = "all" | "pending" | "accepted" | "revoked" | "failed";
 import {
   Select,
   SelectContent,
