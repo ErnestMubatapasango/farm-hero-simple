@@ -297,12 +297,14 @@ export default function AdminInvitations() {
           all: invitations.length,
           pending: invitations.filter((i) => i.status === "pending").length,
           accepted: invitations.filter((i) => i.status === "accepted").length,
+          failed: invitations.filter((i) => i.status === "failed").length,
           revoked: invitations.filter((i) => i.status === "revoked").length,
         };
         const tabs: { key: FilterKey; label: string }[] = [
           { key: "all", label: "All" },
           { key: "pending", label: "Pending" },
           { key: "accepted", label: "Accepted" },
+          { key: "failed", label: "Failed" },
           { key: "revoked", label: "Revoked" },
         ];
         return (
