@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Sprout, Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
+import { completePendingOrg } from "@/lib/pendingOrg";
 
 type AuthMode = "signin" | "create-org";
 
