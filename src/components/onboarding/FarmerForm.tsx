@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +15,8 @@ import {
 import { Sprout, User, Tractor, Wallet, ChevronRight, ChevronLeft, Check, Loader2 } from "lucide-react";
 import { zimbabweProvinces } from "@/components/onboarding/utils";
 import CropsStep from "@/components/onboarding/CropsStep";
+import { saveFarmer as offlineSaveFarmer } from "@/lib/offline/farmerRepo";
+import { syncManager } from "@/lib/offline/syncManager";
 
 type Step = "personal" | "farm" | "crops" | "financial";
 
@@ -189,37 +190,50 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
       }
     }
 
-    const { data: resolvedFarmerIdRaw, error: rpcError } = await supabase.rpc("save_farmer", {
-      _farmer_id: (mode === "edit" ? farmerId ?? null : null) as any,
-      _payload: payload as any,
-      _crops: cropsPayload as any,
-      _yields: yieldsPayload as any,
-    });
-    const resolvedFarmerId = resolvedFarmerIdRaw as string | null;
-
-    if (rpcError || !resolvedFarmerId) {
+    let resolvedFarmerId: string;
+    let queued = false;
+    try {
+      const result = await offlineSaveFarmer({
+        farmerId: mode === "edit" ? farmerId ?? null : null,
+        organizationId,
+        userId: session.user.id,
+        payload,
+        crops: cropsPayload,
+        yields: yieldsPayload,
+      });
+      resolvedFarmerId = result.farmerId;
+      queued = result.queued;
+    } catch (err: any) {
       toast({
         title: mode === "edit" ? "Error updating farmer" : "Error creating farmer",
-        description: rpcError?.message ?? "Unknown error",
+        description: err?.message ?? "Unknown error",
         variant: "destructive",
       });
       setSubmitting(false);
       return;
     }
 
+    // Kick sync in the background if we queued or after a successful online write.
+    void syncManager.sync();
+
     if (mode === "create") {
       toast({
-        title: "Farmer registered",
-        description: `${form.first_name} ${form.last_name} has been onboarded successfully.`,
+        title: queued ? "Saved offline" : "Farmer registered",
+        description: queued
+          ? `${form.first_name} ${form.last_name} will sync when you're back online.`
+          : `${form.first_name} ${form.last_name} has been onboarded successfully.`,
       });
       setForm(emptyFarmerForm);
       setStep("personal");
       setSubmitting(false);
       navigate("/");
     } else {
-      toast({ title: "Farmer updated", description: "Changes saved successfully." });
+      toast({
+        title: queued ? "Saved offline" : "Farmer updated",
+        description: queued ? "Changes will sync when you're back online." : "Changes saved successfully.",
+      });
       setSubmitting(false);
-      navigate(`/admin/farmer/${resolvedFarmerId}`);
+      navigate(queued ? "/" : `/admin/farmer/${resolvedFarmerId}`);
     }
   };
 

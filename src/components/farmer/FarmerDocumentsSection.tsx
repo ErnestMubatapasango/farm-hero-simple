@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/select";
 import DocumentPreviewDialog from "./DocumentPreviewDialog";
 import RequiredDocumentsChecklist from "./RequiredDocumentsChecklist";
+import { queueDocumentUpload } from "@/lib/offline/farmerRepo";
+import { syncManager } from "@/lib/offline/syncManager";
 
 
 interface FarmerDocument {
@@ -98,6 +100,26 @@ export default function FarmerDocumentsSection({
       return;
     }
     setUploading(true);
+
+    // If offline (or farmer is a local-only draft not yet synced), queue upload
+    const isLocalFarmer = farmerId.startsWith("local-");
+    if (!navigator.onLine || isLocalFarmer) {
+      await queueDocumentUpload({
+        farmerId,
+        organizationId,
+        userId: session.user.id,
+        documentType: docType,
+        file,
+      });
+      toast({
+        title: "Saved offline",
+        description: "Document will upload when you're back online.",
+      });
+      setUploading(false);
+      void syncManager.sync();
+      return;
+    }
+
     const ext = file.name.split(".").pop() || "bin";
     const docId = crypto.randomUUID();
     const path = `${organizationId}/${farmerId}/${docId}.${ext}`;
@@ -106,7 +128,15 @@ export default function FarmerDocumentsSection({
       .from("farmer-documents")
       .upload(path, file, { contentType: file.type, upsert: false });
     if (upErr) {
-      toast({ title: "Upload failed", description: upErr.message, variant: "destructive" });
+      // Fallback to offline queue on transient network failure
+      await queueDocumentUpload({
+        farmerId,
+        organizationId,
+        userId: session.user.id,
+        documentType: docType,
+        file,
+      });
+      toast({ title: "Saved offline", description: "Will retry automatically." });
       setUploading(false);
       return;
     }
