@@ -114,6 +114,56 @@ export type Database = {
           },
         ]
       }
+      farm_health_scores: {
+        Row: {
+          band: string
+          breakdown: Json
+          computed_at: string
+          computed_by: string | null
+          created_at: string
+          engine_version: string
+          farmer_id: string
+          id: string
+          organization_id: string
+          score: number
+          updated_at: string
+        }
+        Insert: {
+          band: string
+          breakdown?: Json
+          computed_at?: string
+          computed_by?: string | null
+          created_at?: string
+          engine_version?: string
+          farmer_id: string
+          id?: string
+          organization_id: string
+          score: number
+          updated_at?: string
+        }
+        Update: {
+          band?: string
+          breakdown?: Json
+          computed_at?: string
+          computed_by?: string | null
+          created_at?: string
+          engine_version?: string
+          farmer_id?: string
+          id?: string
+          organization_id?: string
+          score?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farm_health_scores_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: true
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farmer_activity_log: {
         Row: {
           action: string
@@ -610,6 +660,28 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "credit_scores"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      compute_farm_health: {
+        Args: { _farmer_id: string }
+        Returns: {
+          band: string
+          breakdown: Json
+          computed_at: string
+          computed_by: string | null
+          created_at: string
+          engine_version: string
+          farmer_id: string
+          id: string
+          organization_id: string
+          score: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "farm_health_scores"
           isOneToOne: true
           isSetofReturn: false
         }

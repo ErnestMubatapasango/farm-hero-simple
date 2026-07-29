@@ -23,6 +23,7 @@ import {
   Undo2,
 } from "lucide-react";
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
+import FarmerAnalyticsCard from "@/components/analytics/FarmerAnalyticsCard";
 import { hasAllRequiredDocs } from "@/components/farmer/RequiredDocumentsChecklist";
 import { StatusStepper } from "@/components/farmer/StatusStepper";
 import {
@@ -688,6 +689,15 @@ export default function AdminFarmerDetail() {
         canEdit={canEdit && !isLocked}
         isAdmin={isAdmin}
       />
+
+      {/* Analytics */}
+      <FarmerAnalyticsCard
+        farmerId={farmer.id}
+        farmerName={`${farmer.first_name} ${farmer.last_name}`}
+        farmSize={farmer.farm_size_hectares}
+        annualIncome={farmer.annual_income}
+      />
+
 
       {/* Rejection reason (visible only when set) */}
       {farmer.rejection_reason && (
