@@ -63,7 +63,7 @@ export default function AdminInvitations() {
     if (showSpinner) setLoading(true);
     let query = supabase
       .from("invitations")
-      .select("id, email, role, status, created_at, accepted_at, invited_user_id, revoked_at, revoked_by")
+      .select("id, email, role, status, created_at, accepted_at, invited_user_id, revoked_at, revoked_by, last_error")
       .order("created_at", { ascending: false });
     if (!hasRole("developer") && organizationId) {
       query = query.eq("organization_id", organizationId);
