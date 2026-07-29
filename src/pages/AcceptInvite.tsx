@@ -8,6 +8,7 @@ import { Loader2, Sprout, Eye, EyeOff } from "lucide-react";
 
 export default function AcceptInvite() {
   const navigate = useNavigate();
+  const { refreshRoles } = useAuth();
   const [ready, setReady] = useState(false);
   const readyRef = useRef(false);
   const [email, setEmail] = useState("");
@@ -16,6 +17,7 @@ export default function AcceptInvite() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
