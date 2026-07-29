@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Outlet } from "react-router-dom";
 import { NotificationsBell } from "@/components/NotificationsBell";
+import { ConnectionStatus } from "@/components/ConnectionStatus";
 
 export function AppLayout() {
   return (
@@ -14,6 +15,7 @@ export function AppLayout() {
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
             </div>
             <div className="flex items-center gap-3">
+              <ConnectionStatus />
               <NotificationsBell />
             </div>
           </header>

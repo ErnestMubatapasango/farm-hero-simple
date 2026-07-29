@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
+import { syncManager } from "@/lib/offline/syncManager";
 
 type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
 
@@ -89,6 +90,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, [fetchRolesAndOrg, checkRevoked]);
+
+  // Start/stop offline sync manager when auth state changes
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (uid) {
+      syncManager.start(uid);
+    } else {
+      syncManager.stop();
+    }
+  }, [session?.user?.id]);
 
   // Realtime: sign out immediately if this user's invitation gets revoked
   useEffect(() => {
