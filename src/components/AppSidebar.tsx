@@ -88,7 +88,7 @@ export function AppSidebar() {
         )}
       </div>
 
-      <SidebarContent className="px-2 pt-4">
+      <SidebarContent className={`${collapsed ? "px-1 pt-3" : "px-2 pt-4"}`}>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
