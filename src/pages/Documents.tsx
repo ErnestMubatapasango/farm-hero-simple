@@ -145,8 +145,8 @@ export default function Documents() {
             return (
               <AccordionItem key={f.id} value={f.id} className="border border-border rounded-lg px-3">
                 <AccordionTrigger className="hover:no-underline py-3">
-                  <div className="flex flex-1 items-center justify-between pr-3 gap-3 flex-wrap">
-                    <div className="text-left min-w-0">
+                  <div className="flex flex-1 flex-col items-start pr-3 gap-2 text-left">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
                         {f.first_name} {f.last_name}
                       </p>
