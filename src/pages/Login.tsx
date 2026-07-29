@@ -140,7 +140,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-8 sm:py-12 md:py-16">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
@@ -169,7 +169,7 @@ export default function Login() {
           </button>
         </div>
 
-        <form onSubmit={getSubmitHandler()} className="space-y-4">
+        <form onSubmit={getSubmitHandler()} className="space-y-5">
           {mode === "create-org" && (
             <>
               <div className="space-y-2">
