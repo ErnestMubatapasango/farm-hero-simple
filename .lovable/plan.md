@@ -1,49 +1,74 @@
-## Root cause
+## Goal
 
-Verified against the DB: the most recent create-org signup (`rmilikafu263@gmail.com`, confirmed) has a `profiles` row with `organization_id = NULL` and zero rows in `user_roles`. The organization was never created.
+Give enumerators a natural path to upload documents right after saving a new farmer, surface every farmer's documents in the /documents page as an expandable list with a checklist, and turn /analytics into a real per-farmer (enumerator) / org-wide (admin+) view backed by a new Farm Health Index that complements the existing 300–850 credit score.
 
-The bug is in the email-confirmation branch of `src/pages/Login.tsx`:
+## 1. Post-save document upload in the create flow
 
-1. User submits Create Organization → `supabase.auth.signUp()` returns no session (email confirmation is on).
-2. Login stashes `kyf_pending_org` in `localStorage` and shows "Check your email…".
-3. User clicks the confirmation link. Supabase establishes a session on that redirect. Because `emailRedirectTo` is `window.location.origin` (i.e. `/`), the app lands on Dashboard already signed in — **`handleSignIn` never runs**, so the `kyf_pending_org` completion code that calls `create_organization` never executes.
-4. Even if the user later navigates to `/login`, the `if (session) return <Navigate to="/">` guard redirects them away before `handleSignIn` can process the pending org.
+- After a successful `save_farmer` in `FarmerForm.tsx` (create mode only), do not immediately navigate to `/dashboard`.
+- Instead, transition the same page to a "Documents" post-save panel that renders the existing `FarmerDocumentsSection` for the newly created farmer, plus the `RequiredDocumentsChecklist` at the top.
+- Two CTAs beneath it:
+  - "Finish later" → `/dashboard`
+  - "Submit for review" → calls the state-machine transition to `submitted` (only enabled once the checklist reports `hasAllRequiredDocs`).
+- Offline: if the save was queued (local- id), show a friendly notice that documents will be attachable once the farmer syncs, and route to dashboard — the existing offline doc queue already handles the online case for existing farmers.
+- Edit mode is unchanged (documents already live on the detail page).
 
-Result: confirmed user with a bare profile, no org, no role. The "user acts as enumerator" the user described is just the UI's fallback when `roles` is empty — the real defect is the missing org + role.
+## 2. /documents page — farmer-grouped, expandable
 
-The "role: user" text the user saw is not an app_role (the enum is `developer | super_admin | admin | enumerator`) — it's almost certainly the sidebar/profile fallback string when `roles` is empty. Fixing the org creation makes it moot, and we'll double-check the fallback while we're there.
+Replace the current placeholder `src/pages/Documents.tsx` with a real page:
 
-## Fix
+- Data: one query for farmers the caller can see (reuse existing RLS-scoped `farmers` select, filtered by enumerator ownership for enumerators, org-wide for admins), plus a single `farmer_documents` select joined in memory.
+- UI: search box + status filter + list of farmer rows. Each row is an `Accordion` item showing:
+  - Left: farmer name, region/district, `RequiredDocumentsChecklist` compact summary ("2 of 2 verified" style badge).
+  - Right: status chip counts (verified/pending/rejected/missing).
+  - Expanded: the full `RequiredDocumentsChecklist` + the existing `FarmerDocumentsSection` in read/edit mode based on role.
+- Pagination: server-side, same pattern as `AdminFarmers.tsx` (10 per page).
+- Access: enumerators only see their own farmers (RLS already enforces this); admins/super_admins/developers see the whole org.
 
-Move the pending-org completion out of `handleSignIn` and into the auth bootstrap so it runs whenever a session appears with `kyf_pending_org` present — email-confirmation redirect, sign-in, or reload.
+## 3. /analytics — role-scoped
 
-### Changes
+Replace `src/pages/Analytics.tsx` placeholder:
 
-1. **New helper `src/lib/pendingOrg.ts`**
-   - `completePendingOrg(userId): Promise<boolean>` — reads `kyf_pending_org` from localStorage, calls `supabase.rpc('create_organization', { _name, _slug })`, updates `profiles.full_name` if provided, clears the localStorage key on success, and returns whether an org was created. Idempotent: also clears the key when the RPC fails with "User already belongs to an organization" so we don't loop.
+- Enumerator view: list of their farmers, each expanding into a per-farmer analytics card (yield trend line, revenue by year, farm size context, Farm Health Index, credit score if computed).
+- Admin/super_admin/developer view: an org-wide dashboard on top (total farmers by status, total hectares, aggregate yield by crop, avg Farm Health Index, top/bottom performers) + the same per-farmer drilldown below.
+- Reuse `recharts` (already in the shadcn stack).
+- Per-farmer card is also embedded on `AdminFarmerDetail.tsx` for continuity.
 
-2. **`src/hooks/useAuth.tsx`**
-   - In the `onAuthStateChange` and `getSession` branches, after `fetchRolesAndOrg` when `roles` and `organizationId` both come back empty, call `completePendingOrg(uid)`; if it returns true, run `fetchRolesAndOrg` again so context reflects the new super_admin role + org before any route decision.
-   - Do this before flipping `loading` to false on the initial mount so `ProtectedRoute` doesn't render Dashboard with the empty role set.
+## 4. Farm Health Index (new) alongside credit score
 
-3. **`src/pages/Login.tsx`**
-   - Remove the pending-org completion block from `handleSignIn` (now handled centrally).
-   - Keep the signup branch that stashes `kyf_pending_org` and shows the "Check your email" message.
-   - Keep the immediate-session branch (email confirmation disabled) but have it call the shared `completePendingOrg` helper for consistency instead of an inline RPC call.
+New composite 0–100 score focused on operational health, not lending:
 
-4. **Backfill the stuck user** (data fix, not schema)
-   - For `rmilikafu263@gmail.com` (id `b447daec-…`): confirm with the user whether to (a) call `create_organization` on their behalf using an org name they provide, or (b) leave it and let them retry after the fix ships. No code change needed here — flagged so we don't forget the one broken account.
+```text
+FarmHealthIndex = round(
+    0.30 * Productivity      // yield per hectare vs org p50 for the same crop
+  + 0.25 * Consistency       // 100 - clamp(coefficient_of_variation_of_yields * 100)
+  + 0.20 * Revenue           // revenue_per_hectare vs org p50
+  + 0.15 * Scale             // log-scaled farm size, capped at 10 ha = 100
+  + 0.10 * Compliance        // % of required docs verified
+)
+```
 
-5. **Sanity check the "user" label**
-   - Grep for a `"user"` fallback string in sidebar/profile UI and, if present, change it to `"No role"` / hide it, so the display can't misrepresent a role-less account as an enumerator/user. Purely cosmetic; only touched if such a fallback exists.
+Bands: 0–39 At risk, 40–59 Developing, 60–79 Healthy, 80–100 Thriving.
 
-### Out of scope
+Details:
+- Computed by a new `public.compute_farm_health(_farmer_id uuid)` SECURITY DEFINER RPC that reads the same source tables as `compute_credit_score`, plus `farmer_documents` for compliance.
+- Stored in a new `public.farm_health_scores` table (same shape as `credit_scores`: `farmer_id`, `organization_id`, `score`, `band`, `breakdown jsonb`, `computed_at`, `engine_version`).
+- RLS: viewable by any org member who can view the farmer (enumerators included — this is operational, not credit). Insert/update only via the RPC.
+- The existing `credit_scores` and `compute_credit_score` stay untouched; the analytics UI shows both side by side for admins, and only Farm Health for enumerators (credit score remains admin-gated as today).
 
-- No schema, RLS, or RPC changes. `create_organization` already does the right thing atomically.
-- No changes to the invite flow.
+## Technical notes
 
-### Verification
+- Grants on `farm_health_scores`: `GRANT SELECT ON public.farm_health_scores TO authenticated; GRANT ALL TO service_role;` then RLS + policies mirroring `can_view_farmer`.
+- Percentile inputs for Productivity/Revenue are computed inline in the RPC using `percentile_cont(0.5)` over the farmer's organization + crop.
+- `FarmerDocumentsSection` already exposes `canEdit`/`isAdmin` — reuse it as-is in the new pages.
+- No changes to the offline outbox schema; the post-save panel simply reuses the existing upload path for newly created online farmers.
 
-- Sign up a fresh email with confirmation on → click email link → land on Dashboard → confirm `organizations` row exists, `profiles.organization_id` is set, and `user_roles` has `super_admin` for that user + org.
-- Repeat with confirmation off (immediate session) → same result via the Login sign-up path.
-- Reload while signed in with no `kyf_pending_org` → nothing happens, no extra RPC calls.
+## Files touched
+
+- Update: `src/components/onboarding/FarmerForm.tsx`, `src/pages/Documents.tsx`, `src/pages/Analytics.tsx`, `src/pages/AdminFarmerDetail.tsx`
+- New: `src/components/analytics/FarmerAnalyticsCard.tsx`, `src/components/analytics/OrgAnalyticsDashboard.tsx`, `src/lib/farm-health.ts` (client helper for fetching + formatting)
+- Migration: create `farm_health_scores` table + `compute_farm_health` RPC + grants/RLS.
+
+## Out of scope
+
+- Bulk document verification queue (already exists on AdminFarmers).
+- Historical trending of Farm Health Index over time — this iteration stores only the latest score.
