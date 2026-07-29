@@ -76,9 +76,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-border">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-          <Sprout className="h-5 w-5 text-primary-foreground" />
+      <div className={`flex items-center gap-3 border-b border-border ${collapsed ? "justify-center px-2 py-4" : "px-4 py-5"}`}>
+        <div className={`flex items-center justify-center rounded-lg bg-primary ${collapsed ? "h-8 w-8" : "h-9 w-9"}`}>
+          <Sprout className={`text-primary-foreground ${collapsed ? "h-4.5 w-4.5" : "h-5 w-5"}`} />
         </div>
         {!collapsed && (
           <div className="kyf-fade-in">
