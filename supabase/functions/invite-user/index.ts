@@ -123,9 +123,34 @@ Deno.serve(async (req) => {
     if (!orgId) return json({ error: "No organization" }, 400);
     if (!callerCanActOnOrg(orgId)) return json({ error: "Forbidden" }, 403);
 
+    // Pre-flight: does an auth user with this email already exist?
+    // inviteUserByEmail fails hard for existing users; detect it up-front to give a clear response.
+    let existingUserId: string | null = null;
+    try {
+      // listUsers doesn't support server-side email filter reliably; scan the first page.
+      const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const match = list?.users?.find((u) => (u.email ?? "").toLowerCase() === email);
+      if (match) existingUserId = match.id;
+    } catch (_) { /* ignore */ }
+
+    if (existingUserId) {
+      // Already a member of this org?
+      const { data: existingRoles } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", existingUserId)
+        .eq("organization_id", orgId);
+      if ((existingRoles?.length ?? 0) > 0) {
+        return json({ error: "This user is already a member of your organization." }, 409);
+      }
+      return json({
+        error:
+          "This email is already registered with another account. Ask them to sign in with their existing password — they can't be invited as a new user.",
+      }, 409);
+    }
+
     // Insert the invitations row FIRST so acceptance logic has a target even
-    // if the email dispatch flakes. The unique constraint on (email, org)
-    // isn't enforced yet; we tolerate a soft duplicate here.
+    // if the email dispatch flakes.
     const { data: invRow, error: rowErr } = await admin
       .from("invitations")
       .insert({
@@ -137,20 +162,23 @@ Deno.serve(async (req) => {
       })
       .select("id")
       .single();
-    if (rowErr) return json({ error: "Invitation could not be recorded" }, 400);
+    if (rowErr) {
+      console.error("[invite-user] insert invitations failed:", rowErr);
+      return json({ error: "Invitation could not be recorded" }, 400);
+    }
 
     const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { organization_id: orgId, role, invited_by: callerId },
       redirectTo,
     });
     if (inviteErr) {
-      // Mark row as failed so admins can retry via "resend" without a duplicate.
+      console.error("[invite-user] inviteUserByEmail failed:", inviteErr);
+      // Mark row as 'failed' (NOT 'revoked') and record the underlying reason so admins can retry.
       await admin
         .from("invitations")
-        .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_by: callerId })
+        .update({ status: "failed", last_error: inviteErr.message ?? "Unknown error" })
         .eq("id", invRow.id);
-      // Generic message — avoid enumerating existing emails.
-      return json({ error: "Invitation could not be sent" }, 400);
+      return json({ error: `Invitation could not be sent: ${inviteErr.message ?? "unknown error"}` }, 400);
     }
 
     if (invited.user?.id) {
