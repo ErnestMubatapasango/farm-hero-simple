@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { syncManager } from "@/lib/offline/syncManager";
+import { completePendingOrg } from "@/lib/pendingOrg";
 
 type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
 
@@ -62,15 +63,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const finalizeSession = async (uid: string) => {
+      const revoked = await checkRevoked(uid);
+      if (revoked) return;
+      await fetchRolesAndOrg(uid);
+      // If a create-org intent was stashed at signup (email-confirmation flow),
+      // complete it now that we have a session, then refresh roles/org.
+      const created = await completePendingOrg(uid);
+      if (created) await fetchRolesAndOrg(uid);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         if (session?.user?.id) {
           const uid = session.user.id;
-          setTimeout(async () => {
-            const revoked = await checkRevoked(uid);
-            if (!revoked) await fetchRolesAndOrg(uid);
-          }, 0);
+          setTimeout(() => { finalizeSession(uid); }, 0);
         } else {
           setRoles([]);
           setOrganizationId(null);
@@ -82,8 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user?.id) {
-        const revoked = await checkRevoked(session.user.id);
-        if (!revoked) await fetchRolesAndOrg(session.user.id);
+        await finalizeSession(session.user.id);
       }
       setLoading(false);
     });
