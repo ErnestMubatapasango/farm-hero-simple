@@ -9,7 +9,7 @@ import { Link } from "react-router-dom";
 type AuthMode = "signin" | "create-org";
 
 export default function Login() {
-  const { session } = useAuth();
+  const { session, refreshRoles } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<AuthMode>("signin");
@@ -28,9 +28,49 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
-    else navigate("/");
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // If the user signed up as an org creator with email confirmation on,
+    // finish org creation now that we have a session.
+    try {
+      const pendingRaw = localStorage.getItem("kyf_pending_org");
+      if (pendingRaw && signInData.session) {
+        const pending = JSON.parse(pendingRaw) as {
+          name?: string;
+          full_name?: string;
+        };
+        if (pending?.name) {
+          const slug = pending.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "");
+          const { error: rpcError } = await supabase.rpc("create_organization", {
+            _name: pending.name,
+            _slug: slug,
+          });
+          if (!rpcError && pending.full_name) {
+            await supabase
+              .from("profiles")
+              .update({ full_name: pending.full_name })
+              .eq("user_id", signInData.session.user.id);
+          }
+        }
+        localStorage.removeItem("kyf_pending_org");
+      }
+    } catch {
+      /* non-fatal */
+    }
+
+    await refreshRoles();
+    navigate("/", { replace: true });
     setLoading(false);
   };
 
@@ -51,14 +91,28 @@ export default function Login() {
       });
       if (signUpError) throw signUpError;
 
-      const userId = authData.user?.id;
-      if (!userId) {
-        setMessage("Check your email for a confirmation link.");
+      // Email confirmation on → no session yet. Stash org intent so first
+      // sign-in completes the setup, and stop here.
+      if (!authData.session) {
+        try {
+          localStorage.setItem(
+            "kyf_pending_org",
+            JSON.stringify({ name: orgName, full_name: fullName }),
+          );
+        } catch {
+          /* ignore */
+        }
+        setMessage(
+          "Check your email to confirm your account. Your organization will be created on first sign-in.",
+        );
         setLoading(false);
         return;
       }
 
-      const slug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const slug = orgName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
       const { error: rpcError } = await supabase.rpc("create_organization", {
         _name: orgName,
         _slug: slug,
@@ -68,14 +122,17 @@ export default function Login() {
       await supabase
         .from("profiles")
         .update({ full_name: fullName })
-        .eq("user_id", userId);
+        .eq("user_id", authData.session.user.id);
 
-      setMessage("Organization created! Check your email to confirm your account, then sign in.");
+      await refreshRoles();
+      setMessage("Organization created. Redirecting…");
+      navigate("/", { replace: true });
     } catch (err: any) {
       setError(err.message);
     }
     setLoading(false);
   };
+
 
   const getSubmitHandler = () => {
     if (mode === "create-org") return handleCreateOrg;
