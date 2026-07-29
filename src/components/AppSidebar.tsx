@@ -49,7 +49,7 @@ const adminNav = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
   const { session, roles, hasAnyRole } = useAuth();
@@ -57,6 +57,12 @@ export function AppSidebar() {
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   useEffect(() => {
     if (!userId) return;
