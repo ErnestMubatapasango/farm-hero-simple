@@ -433,6 +433,7 @@ export type Database = {
           id: string
           invited_by: string
           invited_user_id: string | null
+          last_error: string | null
           organization_id: string
           revoked_at: string | null
           revoked_by: string | null
@@ -447,6 +448,7 @@ export type Database = {
           id?: string
           invited_by: string
           invited_user_id?: string | null
+          last_error?: string | null
           organization_id: string
           revoked_at?: string | null
           revoked_by?: string | null
@@ -461,6 +463,7 @@ export type Database = {
           id?: string
           invited_by?: string
           invited_user_id?: string | null
+          last_error?: string | null
           organization_id?: string
           revoked_at?: string | null
           revoked_by?: string | null
@@ -625,6 +628,7 @@ export type Database = {
           id: string
           invited_by: string
           invited_user_id: string | null
+          last_error: string | null
           organization_id: string
           revoked_at: string | null
           revoked_by: string | null
@@ -728,6 +732,7 @@ export type Database = {
           id: string
           invited_by: string
           invited_user_id: string | null
+          last_error: string | null
           organization_id: string
           revoked_at: string | null
           revoked_by: string | null
