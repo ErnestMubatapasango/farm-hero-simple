@@ -205,11 +205,18 @@ Deno.serve(async (req) => {
       data: { organization_id: inv.organization_id, role: inv.role, invited_by: callerId },
       redirectTo,
     });
-    if (inviteErr) return json({ error: inviteErr.message }, 400);
+    if (inviteErr) {
+      console.error("[invite-user] resend failed:", inviteErr);
+      await admin
+        .from("invitations")
+        .update({ status: "failed", last_error: inviteErr.message ?? "Unknown error" })
+        .eq("id", body.invitation_id);
+      return json({ error: inviteErr.message }, 400);
+    }
 
     await admin
       .from("invitations")
-      .update({ status: "pending", accepted_at: null })
+      .update({ status: "pending", accepted_at: null, last_error: null })
       .eq("id", body.invitation_id);
 
     return json({ ok: true });
