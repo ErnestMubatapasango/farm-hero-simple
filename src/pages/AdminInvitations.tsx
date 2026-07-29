@@ -34,6 +34,7 @@ interface Invitation {
   invited_user_id: string | null;
   revoked_at: string | null;
   revoked_by: string | null;
+  last_error: string | null;
 }
 
 export default function AdminInvitations() {
