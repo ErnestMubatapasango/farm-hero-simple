@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { RoleRoute } from "@/components/RoleRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import Dashboard from "./pages/Dashboard";
 import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
