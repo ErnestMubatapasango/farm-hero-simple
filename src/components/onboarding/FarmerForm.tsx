@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
@@ -17,6 +18,7 @@ import { zimbabweProvinces } from "@/components/onboarding/utils";
 import CropsStep from "@/components/onboarding/CropsStep";
 import { saveFarmer as offlineSaveFarmer } from "@/lib/offline/farmerRepo";
 import { syncManager } from "@/lib/offline/syncManager";
+import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
 
 type Step = "personal" | "farm" | "crops" | "financial";
 
@@ -106,6 +108,7 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
   const [step, setStep] = useState<Step>("personal");
   const [form, setForm] = useState<FarmerFormState>(initialData ?? emptyFarmerForm);
   const [submitting, setSubmitting] = useState(false);
+  const [savedFarmer, setSavedFarmer] = useState<{ id: string; name: string } | null>(null);
 
   const canOnboard = hasAnyRole(["enumerator", "admin", "super_admin", "developer"]);
 
@@ -221,12 +224,20 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
         title: queued ? "Saved offline" : "Farmer registered",
         description: queued
           ? `${form.first_name} ${form.last_name} will sync when you're back online.`
-          : `${form.first_name} ${form.last_name} has been onboarded successfully.`,
+          : `${form.first_name} ${form.last_name} has been onboarded. Upload their documents below.`,
       });
-      setForm(emptyFarmerForm);
-      setStep("personal");
       setSubmitting(false);
-      navigate("/");
+      if (queued) {
+        // Local-only: no docs upload panel yet — go back to dashboard
+        setForm(emptyFarmerForm);
+        setStep("personal");
+        navigate("/");
+      } else {
+        setSavedFarmer({
+          id: resolvedFarmerId,
+          name: `${form.first_name} ${form.last_name}`,
+        });
+      }
     } else {
       toast({
         title: queued ? "Saved offline" : "Farmer updated",
@@ -236,6 +247,46 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
       navigate(queued ? "/" : `/admin/farmer/${resolvedFarmerId}`);
     }
   };
+
+  if (savedFarmer && organizationId) {
+    return (
+      <div className="p-4 sm:p-6 md:p-8 max-w-3xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Upload documents</h1>
+          <p className="text-muted-foreground mt-1">
+            {savedFarmer.name} has been onboarded. Attach their required documents (National ID, Land Title)
+            and any supporting files before wrapping up.
+          </p>
+        </div>
+
+        <FarmerDocumentsSection
+          farmerId={savedFarmer.id}
+          organizationId={organizationId}
+          canEdit
+          isAdmin={hasAnyRole(["admin", "super_admin", "developer"])}
+        />
+
+        <div className="flex flex-col sm:flex-row gap-2 justify-end">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSavedFarmer(null);
+              setForm(emptyFarmerForm);
+              setStep("personal");
+            }}
+          >
+            Onboard another farmer
+          </Button>
+          <Button onClick={() => navigate(`/admin/farmer/${savedFarmer.id}`)}>
+            Go to farmer record
+          </Button>
+          <Button variant="ghost" onClick={() => navigate("/")}>
+            Back to dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const headerTitle = title ?? (mode === "edit" ? "Edit Farmer" : "Farmer Onboarding");
   const headerSubtitle = subtitle ?? (mode === "edit" ? "Update this farmer's information." : "Register a new farmer into the system.");
