@@ -61,38 +61,29 @@ export default function Login() {
       });
       if (signUpError) throw signUpError;
 
-      // Email confirmation on → no session yet. Stash org intent so first
-      // sign-in completes the setup, and stop here.
+      // Stash org intent in localStorage. Either the email-confirmation
+      // redirect or an immediate session will trigger completePendingOrg
+      // via AuthProvider.
+      try {
+        localStorage.setItem(
+          "kyf_pending_org",
+          JSON.stringify({ name: orgName, full_name: fullName }),
+        );
+      } catch {
+        /* ignore */
+      }
+
       if (!authData.session) {
-        try {
-          localStorage.setItem(
-            "kyf_pending_org",
-            JSON.stringify({ name: orgName, full_name: fullName }),
-          );
-        } catch {
-          /* ignore */
-        }
         setMessage(
-          "Check your email to confirm your account. Your organization will be created on first sign-in.",
+          "Check your email to confirm your account. Your organization will be created automatically once you confirm.",
         );
         setLoading(false);
         return;
       }
 
-      const slug = orgName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-      const { error: rpcError } = await supabase.rpc("create_organization", {
-        _name: orgName,
-        _slug: slug,
-      });
-      if (rpcError) throw rpcError;
-
-      await supabase
-        .from("profiles")
-        .update({ full_name: fullName })
-        .eq("user_id", authData.session.user.id);
+      // Immediate session (email confirmation off) → complete now.
+      const created = await completePendingOrg(authData.session.user.id);
+      if (!created) throw new Error("Failed to create organization. Please try again.");
 
       await refreshRoles();
       setMessage("Organization created. Redirecting…");
