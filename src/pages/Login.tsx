@@ -29,7 +29,7 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { data: signInData, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -38,38 +38,7 @@ export default function Login() {
       setLoading(false);
       return;
     }
-
-    // If the user signed up as an org creator with email confirmation on,
-    // finish org creation now that we have a session.
-    try {
-      const pendingRaw = localStorage.getItem("kyf_pending_org");
-      if (pendingRaw && signInData.session) {
-        const pending = JSON.parse(pendingRaw) as {
-          name?: string;
-          full_name?: string;
-        };
-        if (pending?.name) {
-          const slug = pending.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, "");
-          const { error: rpcError } = await supabase.rpc("create_organization", {
-            _name: pending.name,
-            _slug: slug,
-          });
-          if (!rpcError && pending.full_name) {
-            await supabase
-              .from("profiles")
-              .update({ full_name: pending.full_name })
-              .eq("user_id", signInData.session.user.id);
-          }
-        }
-        localStorage.removeItem("kyf_pending_org");
-      }
-    } catch {
-      /* non-fatal */
-    }
-
+    // Pending-org completion is handled centrally in AuthProvider.
     await refreshRoles();
     navigate("/", { replace: true });
     setLoading(false);
