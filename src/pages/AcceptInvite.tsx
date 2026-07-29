@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Loader2, Sprout, Eye, EyeOff } from "lucide-react";
 
+
 export default function AcceptInvite() {
   const navigate = useNavigate();
+  const { refreshRoles } = useAuth();
   const [ready, setReady] = useState(false);
   const readyRef = useRef(false);
   const [email, setEmail] = useState("");
@@ -14,6 +17,7 @@ export default function AcceptInvite() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -69,9 +73,16 @@ export default function AcceptInvite() {
     });
     if (rpcErr) {
       console.error("accept_my_invitation failed", rpcErr);
+      setError("Could not activate your invitation. Please contact your administrator.");
+      setLoading(false);
+      return;
     }
+    // Pull the freshly-inserted role + organization into AuthContext so the
+    // user lands on a routable page (AdminRoute etc. read from context).
+    await refreshRoles();
     navigate("/", { replace: true });
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
