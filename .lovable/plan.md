@@ -1,103 +1,104 @@
-# KYF Pre-Production Remediation Plan
 
-Status legend: ✅ shipped · 🚧 partial · ⏳ deferred (owner action needed).
+# Offline Support for Field Enumerators
 
----
+Enumerators in rural areas need to onboard farmers without a network and have their work sync automatically once connectivity returns. This plan adds an offline-first path for the enumerator workflow only — admin dashboards, credit scoring, and user management stay online-only because they depend on server RPCs and multi-user state.
 
-## Phase 0 — Foundation & Quick Wins ✅
+## Scope
 
-### 0.1 Schema reconciliation ✅
-- Live DB inspected; `farmers` columns already match the target names (`region`, `district`, `farm_size_hectares`, no `farming_type`).
-- `notifications` table exists with RLS and `notify_enumerator_on_status_change` trigger.
-- Freeze rule adopted: schema changes only via `supabase/migrations/*`.
-- ⏳ CI shadow-DB migration replay is deferred — needs GitHub Actions setup outside the sandbox.
+In scope (works offline):
+- Log in once online, then use the app while offline
+- Create a new farmer (draft) from the Onboarding form
+- Edit a farmer they previously onboarded
+- Queue farmer document uploads
+- View a local list of "My farmers" they onboarded or drafted on this device
+- Automatic background sync when the network returns
 
-### 0.2 Server-authoritative credit score ✅
-- `compute_credit_score(_farmer_id uuid)` RPC added (SECURITY DEFINER, role-checked).
-- `credit_scores` now has `engine_version` and `farmer_id` unique constraint.
-- `REVOKE INSERT/UPDATE/DELETE` on `credit_scores` from `authenticated` — clients are read-only.
-- `src/lib/credit-score-service.ts` refactored to call the RPC; TS engine kept as reference.
+Out of scope for this phase (stay online-only):
+- Verifying / rejecting farmers, bulk actions, CSV export
+- Credit score computation and admin analytics
+- Invitations, user/role management
+- Realtime notifications and activity feed
+- Viewing farmers not enrolled by the current enumerator on this device
 
-### 0.3 Revocation enforcement ✅
-- `revoke_invitation` now nulls `profiles.organization_id` for the revoked user.
-- `farmer_activity_log` INSERT policy now requires an org role.
-- Storage policies on `farmer-documents` rewritten: SELECT/INSERT/UPDATE/DELETE all bind path segments to `farmers.organization_id`, closing cross-tenant uploads.
-- `useAuth.checkRevoked` switched to "revoked invitation AND no active roles" so re-invited users regain access.
-- ⏳ Reducing Supabase JWT expiry to ≤ 1 hour is a dashboard setting the owner must toggle.
+## User experience
 
-### 0.4 Quick wins ✅
-- Cascade FKs added on `farmer_documents`, `credit_scores`, `farmer_activity_log`, `farmer_crops`, `crop_yield_history`.
-- Partial unique index `farmers(organization_id, national_id) WHERE national_id IS NOT NULL`.
-- `notify_enumerator_on_status_change` producer trigger already live.
-- Reject dialog (`AlertDialog` + required Textarea) shipped previously.
-- `AcceptInvite` stale-closure fix shipped previously.
-- Dashboard count queries switched to `head:true` previously.
-- Dead code removed: `mock-data.ts`, `App.css`, `auth-attacher.ts`, `auth-middleware.ts`.
-- Real `README.md`, `.env.example`, and cleaned-up `index.html` OG/meta shipped.
+1. First login must be online. After login, the app caches the shell and the enumerator's own farmer list.
+2. A connection indicator in the top bar shows Online / Offline / Syncing with a pending-changes count.
+3. When offline, the Onboarding form and Edit Farmer form still work. Submitting queues a change locally and shows a "Saved offline — will sync" toast. The farmer appears immediately in "My farmers" with a "Pending sync" badge.
+4. Document uploads while offline are stored locally and queued; the checklist shows "Queued" until upload succeeds.
+5. When the browser goes back online, a sync runs automatically. Successful items lose the pending badge; failed items surface in a "Sync issues" drawer with retry and per-item error messages.
+6. If a farmer was already verified server-side and the enumerator queued an edit while offline, the edit is rejected on sync (matches existing state-machine rules) and shown in Sync issues with a clear reason.
 
----
+## Technical design
 
-## Phase 1 — Trust the Server 🚧
+### PWA shell
+- Use `vite-plugin-pwa` with `generateSW`, `registerType: "autoUpdate"`, `injectRegister: null`.
+- Single guarded registration wrapper that refuses to register in dev, iframes, Lovable preview hosts, and when `?sw=off` is present; unregisters `/sw.js` in those contexts.
+- `NetworkFirst` for HTML navigations, `CacheFirst` for hashed built assets, exclude `/~oauth`.
+- Manifest with app name, theme color matching the KYF green, icons under `public/`.
+- Do not touch any Firebase/OneSignal workers (none exist today).
 
-### 1.3 State machine trigger ✅
-- `farmers_state_machine` BEFORE UPDATE trigger enforces `draft→submitted`, `submitted→verified|rejected`, `rejected→draft|submitted`, `verified→submitted` (super_admin only).
-- Required-docs gate (`national_id` + `land_title`) enforced server-side on `→submitted`.
-- Verified records are immutable for `first_name`, `last_name`, `national_id`, `date_of_birth`, `farm_size_hectares`.
+### Local storage layer
+- Add IndexedDB via `idb` with these stores:
+  - `outbox` — queued mutations `{ id, kind: 'save_farmer'|'upload_document', payload, createdAt, attempts, lastError, status }`
+  - `farmers_local` — enumerator's farmers (server rows + local drafts), keyed by `id` (server uuid or a `local-<uuid>` placeholder)
+  - `documents_local` — queued file blobs keyed by `{farmerId, docType}`
+  - `meta` — last sync time, current user id, org id
+- All writes go through a `farmerRepo` module so the UI never talks to Supabase directly for enumerator write paths. Online writes still hit Supabase immediately but also update the local store; offline writes only update local and enqueue.
 
-### 1.5 Rejection reason column ✅
-- `farmers.rejection_reason text` added. `AdminFarmerDetail` writes and displays it separately from `notes`.
+### Sync engine
+- A `syncManager` module started once inside `AuthProvider` after login.
+- Triggers: `online` event, app focus, successful login, manual "Sync now" button, and a 60s heartbeat while the tab is open.
+- Processes `outbox` FIFO. For `save_farmer` it calls the existing `save_farmer` RPC with the queued payload; on success it replaces the local `local-<uuid>` id with the server id and rewrites any dependent queued items (e.g. document uploads referencing the local id). For `upload_document` it uploads the blob to the `farmer-documents` bucket and inserts the `farmer_documents` row.
+- Conflict handling: server is source of truth. If the RPC rejects (state machine, permissions, verified immutability), the item is marked `failed` with the server error and left in Sync issues; no silent overwrite.
+- Backoff: exponential with jitter, capped; max attempts before requiring manual retry.
 
-### 1.6 Edge function hardening ✅
-- CORS pinned to localhost + `*.lovable.app` + `*.lovableproject.com`; origin no longer wildcarded.
-- Simple in-memory per-caller rate limit (20 req/min).
-- Invitations row now inserted **before** `inviteUserByEmail`; failed sends marked `revoked` so retries do not duplicate.
-- Invite errors now return generic strings to avoid email enumeration.
+### Data access pattern
+- New hook `useMyFarmers()` reads from `farmers_local` first, then reconciles from Supabase in the background when online.
+- `FarmerForm` (create + edit modes) calls `farmerRepo.saveFarmer(...)` instead of `supabase.rpc('save_farmer', ...)` directly. The repo decides online vs. queued.
+- Edit is only offered for farmers present in `farmers_local` (i.e. enrolled by this enumerator). Attempting to edit an unknown farmer while offline shows an explanatory empty state.
 
-### 1.1 Transactional `save_farmer` RPC ✅
-- `public.save_farmer(_farmer_id, _payload, _crops, _yields)` added — SECURITY DEFINER, permission-checked, atomic upsert of farmer + crops + yield history in a single transaction.
-- `FarmerForm.tsx` refactored to call the RPC in both create and edit modes; the multi-step client-side compensation logic is gone.
+### Auth while offline
+- Supabase tokens are already persisted in `localStorage`. We keep `autoRefreshToken: true`. If the access token is expired and refresh fails offline, the app stays in a read-only "offline" mode and re-authenticates automatically on reconnect. No sign-out on transient offline.
 
-### 1.2 `create_organization` RPC ✅
-- `public.create_organization(_name, _slug)` added — creates the org, links the caller's profile, and grants `super_admin` in one transaction. Rejects users who already belong to an org (developers exempt).
-- `Login.tsx` signup now calls the RPC, closing the partial-signup gap where an org could exist without an owner.
+### No backend/schema changes
+- Reuses existing `save_farmer` RPC, `farmer_documents` table and storage bucket, and the workflow state machine. No new tables, RLS, or edge functions.
 
-### 1.4 Credit-score engine tests ✅
-- `src/lib/credit-score.test.ts` added — 8 tests covering score bounds, band mapping, pillar weights, loan penalties, YoY growth, and recommendation generation. Full suite green under `bun run test`.
+## File-level changes
 
-### 1.7 TypeScript strictness ✅
-- Root and app `tsconfig` now set `strict: true`, `strictNullChecks: true`, `noImplicitAny: true`.
-- Dead onboarding step files removed (`PersonalStep`, `FarmStep`, `FinancialStep`, `DocumentsStep`).
-- `useCurrency.jsx` converted to typed `.tsx`. `CropsStep` callbacks typed. Nullable-org guards added in `AdminInvitations` / `AdminRoles`. `EditFarmer` early-returns on missing `farmerId`.
+New:
+- `src/lib/offline/db.ts` — IndexedDB schema and helpers (`idb`)
+- `src/lib/offline/farmerRepo.ts` — read/write facade used by the UI
+- `src/lib/offline/syncManager.ts` — outbox processor and triggers
+- `src/lib/offline/types.ts`
+- `src/hooks/useOnlineStatus.ts`
+- `src/hooks/useSyncStatus.ts`
+- `src/hooks/useMyFarmers.ts`
+- `src/components/ConnectionStatus.tsx` — top-bar indicator + Sync now
+- `src/components/SyncIssuesDrawer.tsx`
+- `src/pwa/registerSW.ts` — guarded registration wrapper
+- `public/manifest.webmanifest` + icons
+- Unit tests: `src/lib/offline/farmerRepo.test.ts`, `syncManager.test.ts`
 
----
+Edited:
+- `vite.config.ts` — add `vite-plugin-pwa` with the constraints above
+- `index.html` — manifest, theme-color, apple-touch-icon links
+- `src/main.tsx` — call guarded `registerSW`
+- `src/hooks/useAuth.tsx` — start `syncManager` after session is ready; keep the existing revocation subscription
+- `src/components/onboarding/FarmerForm.tsx` — call `farmerRepo.saveFarmer` instead of the RPC directly; show offline toast wording
+- `src/components/farmer/FarmerDocumentsSection.tsx` — route uploads through the repo/outbox
+- `src/pages/Dashboard.tsx` — the "My farmers" quick action reads from `useMyFarmers`
+- `src/components/AppLayout.tsx` — mount `<ConnectionStatus />` in the header
 
-## Phase 2 — Test, Observe, Comply 🚧
+## Rollout
 
-### 2.1 In-repo tests ✅
-- `src/lib/csv.test.ts`, `src/lib/relative-time.test.ts`, `src/lib/observability.test.ts` added — 20 vitest cases total (with the existing credit-score suite), all green under `bun run test`.
+1. Ship PWA shell + manifest + guarded SW behind published builds only. Verify no SW registers in Lovable preview.
+2. Land IndexedDB + repo + sync manager with feature flag `VITE_OFFLINE_ENABLED`, enabled by default in production.
+3. Migrate `FarmerForm`, doc uploads, and enumerator dashboard to the repo.
+4. Communicate to users: "Log in once with internet. After that, onboarding works offline and syncs automatically when you're back on a network."
 
-### 2.2 CI workflow ✅
-- `.github/workflows/ci.yml` added: two jobs — `verify` (bun install → `tsc --noEmit` → `bun run test`) and `migrations` (postgres:15 service, applies `supabase/migrations/*.sql` in order against a shadow DB with `ON_ERROR_STOP=1`).
-- ⏳ Owner needs to enable Actions on the repo; no secrets required for the current jobs.
+## Known limitations to disclose
 
-### 2.3 Observability scaffolding ✅
-- `src/lib/observability.ts` — dependency-free shim exposing `captureError` / `captureWarning` / `captureInfo`. Always logs locally; forwards to `window.Sentry` when `VITE_SENTRY_DSN` is set and the SDK has been loaded.
-- ⏳ Owner action: `bun add @sentry/react`, initialise in `main.tsx`, set `VITE_SENTRY_DSN` + configure Supabase log drains + run a PITR restore drill.
-
-### 2.4 CDPA consent + retention ⏳
-- Blocked on owner-provided consent wording and retention window. Plan: add `farmers.consent_given_at` + `consent_version`, a wizard checkbox, and a `log_document_access(_farmer_id, _path)` RPC for audited signed-URL reads.
-
----
-
-## Phase 3 — Quality & Scale ⏳
-
-Post-launch quality items (react-query adoption, `dashboard_stats()` RPC, `pg_trgm` search, route code-splitting, per-step wizard validation, currency FX decision, multi-org decision) are unchanged and remain post-launch backlog.
-
----
-
-## Owner action items
-
-1. **Supabase dashboard** — enable leaked-password protection and lower JWT lifetime to 60 min.
-2. **CI** — wire GitHub Actions for migration replay, typecheck, Playwright.
-3. **Observability** — add Sentry DSN and configure log drains.
-4. **Consent + CDPA** — decide wording and add the consent step to the wizard.
+- Offline works only in the published app, never in the Lovable editor preview.
+- iOS Safari caps IndexedDB storage and can evict data if the app is unused for weeks — recommend syncing at least weekly.
+- Server-side validations (duplicate national ID, verified immutability, missing required documents) are only enforced at sync time; the UI shows them in the Sync issues drawer.
