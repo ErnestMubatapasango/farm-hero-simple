@@ -49,7 +49,7 @@ const adminNav = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
   const { session, roles, hasAnyRole } = useAuth();
@@ -57,6 +57,12 @@ export function AppSidebar() {
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   useEffect(() => {
     if (!userId) return;
@@ -98,6 +104,7 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
+                      onClick={handleNavClick}
                       className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     >
@@ -121,14 +128,15 @@ export function AppSidebar() {
                 {adminNav.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                      >
-                        <item.icon className="h-4.5 w-4.5 shrink-0" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
+                    <NavLink
+                      to={item.url}
+                      onClick={handleNavClick}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    >
+                      <item.icon className="h-4.5 w-4.5 shrink-0" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
