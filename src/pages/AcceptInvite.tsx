@@ -73,9 +73,16 @@ export default function AcceptInvite() {
     });
     if (rpcErr) {
       console.error("accept_my_invitation failed", rpcErr);
+      setError("Could not activate your invitation. Please contact your administrator.");
+      setLoading(false);
+      return;
     }
+    // Pull the freshly-inserted role + organization into AuthContext so the
+    // user lands on a routable page (AdminRoute etc. read from context).
+    await refreshRoles();
     navigate("/", { replace: true });
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
