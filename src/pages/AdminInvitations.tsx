@@ -214,6 +214,7 @@ export default function AdminInvitations() {
       case "accepted": return <CheckCircle className="h-4 w-4 text-green-500" />;
       case "expired": return <XCircle className="h-4 w-4 text-destructive" />;
       case "revoked": return <Ban className="h-4 w-4 text-muted-foreground" />;
+      case "failed": return <AlertTriangle className="h-4 w-4 text-destructive" />;
       default: return <Clock className="h-4 w-4 text-yellow-500" />;
     }
   };
