@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Loader2, Sprout, Eye, EyeOff } from "lucide-react";
+
 
 export default function AcceptInvite() {
   const navigate = useNavigate();
