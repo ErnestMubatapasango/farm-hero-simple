@@ -71,6 +71,7 @@ const App = () => (
                   <Route path="/admin/invitations" element={<AdminInvitations />} />
                 </Route>
               </Route>
+              </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
