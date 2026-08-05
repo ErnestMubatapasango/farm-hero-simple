@@ -8,6 +8,7 @@ import { CurrencyProvider } from "@/hooks/useCurrency";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { RoleRoute } from "@/components/RoleRoute";
+import { RequireOrg } from "@/components/RequireOrg";
 import { AppLayout } from "@/components/AppLayout";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import Dashboard from "./pages/Dashboard";
@@ -28,6 +29,7 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AcceptInvite from "./pages/AcceptInvite";
+import SetupOrganization from "./pages/SetupOrganization";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +49,8 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route element={<ProtectedRoute />}>
+              <Route path="/setup-organization" element={<SetupOrganization />} />
+              <Route element={<RequireOrg />}>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/onboarding" element={<Onboarding />} />
@@ -66,6 +70,7 @@ const App = () => (
                 <Route element={<RoleRoute allow={["super_admin", "developer"]} />}>
                   <Route path="/admin/invitations" element={<AdminInvitations />} />
                 </Route>
+              </Route>
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
