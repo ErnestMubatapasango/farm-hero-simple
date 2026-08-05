@@ -67,10 +67,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const revoked = await checkRevoked(uid);
       if (revoked) return;
       await fetchRolesAndOrg(uid);
-      // If a create-org intent was stashed at signup (email-confirmation flow),
-      // complete it now that we have a session, then refresh roles/org.
-      const created = await completePendingOrg(uid);
-      if (created) await fetchRolesAndOrg(uid);
+      // Fallback: if a create-org intent was stashed at signup and the
+      // server-side trigger didn't create the org, complete it now.
+      const result = await completePendingOrg(uid);
+      if (result.created) await fetchRolesAndOrg(uid);
+      else if (result.error) console.error("Pending org completion failed:", result.error);
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
