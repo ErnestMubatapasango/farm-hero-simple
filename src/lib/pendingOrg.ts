@@ -7,32 +7,61 @@ interface PendingOrg {
   full_name?: string;
 }
 
+export interface CompletePendingOrgResult {
+  created: boolean;
+  error?: string;
+}
+
+export function readPendingOrg(): PendingOrg | null {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PendingOrg;
+  } catch {
+    return null;
+  }
+}
+
+export function stashPendingOrg(pending: PendingOrg) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(pending));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearPendingOrg() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
- * If a pending org intent was stashed at signup (email-confirmation flow),
- * complete it now that we have a session. Returns true when an org was created.
- * Idempotent: clears the localStorage key on success or on a known-benign failure
- * (e.g. user already belongs to an org).
+ * Secondary fallback path: organizations are normally created server-side at
+ * signup (from the `pending_org_name` signup metadata). This only kicks in for
+ * accounts created before that behaviour existed, or if the trigger path was
+ * bypassed. Errors are returned rather than swallowed.
  */
-export async function completePendingOrg(userId: string): Promise<boolean> {
-  let raw: string | null = null;
-  try {
-    raw = localStorage.getItem(KEY);
-  } catch {
-    return false;
-  }
-  if (!raw) return false;
+export async function completePendingOrg(userId: string): Promise<CompletePendingOrgResult> {
+  const pending = readPendingOrg();
+  if (!pending) return { created: false };
 
-  let pending: PendingOrg | null = null;
-  try {
-    pending = JSON.parse(raw) as PendingOrg;
-  } catch {
-    try { localStorage.removeItem(KEY); } catch { /* ignore */ }
-    return false;
+  if (!pending.name) {
+    clearPendingOrg();
+    return { created: false };
   }
 
-  if (!pending?.name) {
-    try { localStorage.removeItem(KEY); } catch { /* ignore */ }
-    return false;
+  // Already has an org? Nothing to do.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profile?.organization_id) {
+    clearPendingOrg();
+    return { created: false };
   }
 
   const slug = pending.name
@@ -46,11 +75,11 @@ export async function completePendingOrg(userId: string): Promise<boolean> {
   });
 
   if (error) {
-    // Already belongs to an org → nothing more to do, drop the key.
     if (/already belongs/i.test(error.message)) {
-      try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+      clearPendingOrg();
+      return { created: false };
     }
-    return false;
+    return { created: false, error: error.message };
   }
 
   if (pending.full_name) {
@@ -60,6 +89,6 @@ export async function completePendingOrg(userId: string): Promise<boolean> {
       .eq("user_id", userId);
   }
 
-  try { localStorage.removeItem(KEY); } catch { /* ignore */ }
-  return true;
+  clearPendingOrg();
+  return { created: true };
 }
