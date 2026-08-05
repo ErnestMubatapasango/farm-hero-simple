@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Sprout, Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
-import { completePendingOrg } from "@/lib/pendingOrg";
+import { completePendingOrg, stashPendingOrg } from "@/lib/pendingOrg";
 
 type AuthMode = "signin" | "create-org";
 
@@ -56,34 +56,27 @@ export default function Login() {
         password,
         options: {
           emailRedirectTo: window.location.origin,
-          data: { full_name: fullName },
+          data: { full_name: fullName, pending_org_name: orgName },
         },
       });
       if (signUpError) throw signUpError;
 
-      // Stash org intent in localStorage. Either the email-confirmation
-      // redirect or an immediate session will trigger completePendingOrg
-      // via AuthProvider.
-      try {
-        localStorage.setItem(
-          "kyf_pending_org",
-          JSON.stringify({ name: orgName, full_name: fullName }),
-        );
-      } catch {
-        /* ignore */
-      }
+      // The organization is created server-side at signup from the
+      // `pending_org_name` metadata. The localStorage stash is only a
+      // secondary fallback for older accounts / unexpected gaps.
+      stashPendingOrg({ name: orgName, full_name: fullName });
 
       if (!authData.session) {
         setMessage(
-          "Check your email to confirm your account. Your organization will be created automatically once you confirm.",
+          "Check your email to confirm your account. Your organization has been created and will be ready when you sign in.",
         );
         setLoading(false);
         return;
       }
 
-      // Immediate session (email confirmation off) → complete now.
-      const created = await completePendingOrg(authData.session.user.id);
-      if (!created) throw new Error("Failed to create organization. Please try again.");
+      // Immediate session (email confirmation off) → the trigger already ran.
+      const result = await completePendingOrg(authData.session.user.id);
+      if (result.error) throw new Error(result.error);
 
       await refreshRoles();
       setMessage("Organization created. Redirecting…");
