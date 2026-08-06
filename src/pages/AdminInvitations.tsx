@@ -375,11 +375,17 @@ export default function AdminInvitations() {
                       {inv.role.replace("_", " ")} · {inv.status}
                       {inv.created_at && ` · sent ${relativeTime(inv.created_at)}`}
                     </p>
+                    {isPending && inv.invited_user_id && (
+                      <p className="text-xs text-muted-foreground mt-1 normal-case">
+                        Invited — awaiting acceptance (no access until they set a password)
+                      </p>
+                    )}
                     {isAccepted && inv.accepted_at && (
                       <p className="text-xs text-green-600 mt-1 normal-case">
                         Accepted by {acceptedName || inv.email} · {relativeTime(inv.accepted_at)}
                       </p>
                     )}
+
                     {isRevoked && inv.revoked_at && (
                       <p className="text-xs text-muted-foreground mt-1 normal-case">
                         Access revoked {relativeTime(inv.revoked_at)}
