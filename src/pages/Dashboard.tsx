@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { relativeTime } from "@/lib/relative-time";
+import { greeting } from "@/lib/greeting";
 import {
   Sprout,
   ChevronRight,
@@ -15,7 +16,9 @@ import {
   Send,
   Activity,
   Trophy,
+  Building2,
 } from "lucide-react";
+
 
 interface Stats {
   totalFarmers: number;
