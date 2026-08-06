@@ -229,14 +229,24 @@ export default function Dashboard() {
   }
 
   const email = session?.user?.email || "User";
+  const firstName = myName?.trim().split(" ")[0];
   const roleLabel = roles.length > 0 ? roles.map((r) => r.replace("_", " ")).join(", ") : "No role assigned";
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8">
       <div className="kyf-slide-up">
-        <h1 className="text-2xl font-bold text-foreground leading-tight">Welcome back</h1>
-        <p className="text-muted-foreground mt-1">{email}</p>
+        {orgName && (
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1">
+            <Building2 className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-medium text-foreground">{orgName}</span>
+          </div>
+        )}
+        <h1 className="text-2xl font-bold text-foreground leading-tight">
+          {greeting()}, {firstName || email}
+        </h1>
+        <p className="text-muted-foreground mt-1 capitalize">{roleLabel}</p>
       </div>
+
 
       {/* Stats cards */}
       {loadingStats ? (
