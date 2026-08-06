@@ -112,7 +112,7 @@ export function AppSidebar() {
         )}
       </div>
 
-      </div>
+
 
       <SidebarContent className={`${collapsed ? "px-1 pt-3" : "px-2 pt-4"}`}>
         <SidebarGroup>
