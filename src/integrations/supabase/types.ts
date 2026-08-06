@@ -694,6 +694,7 @@ export type Database = {
         Args: { _name: string; _slug: string }
         Returns: string
       }
+      ensure_platform_developer: { Args: { _email?: string }; Returns: string }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_role:
         | {
