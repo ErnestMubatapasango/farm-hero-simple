@@ -169,7 +169,7 @@ export function AppSidebar() {
       <SidebarFooter className={`border-t border-border space-y-2 ${collapsed ? "p-2" : "p-3"}`}>
         <div className={`flex items-center gap-3 rounded-lg ${collapsed ? "justify-center px-2 py-1.5" : "px-3 py-2"}`}>
           <Avatar className={`${collapsed ? "h-7 w-7" : "h-8 w-8"}`}>
-            <AvatarImage src={profile?.avatar_url || undefined} alt={displayName} />
+            <AvatarImage src={avatarSrc || undefined} alt={displayName} />
             <AvatarFallback className="bg-muted text-sm font-medium">
               {initials}
             </AvatarFallback>
