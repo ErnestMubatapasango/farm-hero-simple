@@ -63,9 +63,11 @@ export default function SetupOrganization() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Finish setting up</h1>
           <p className="text-sm text-muted-foreground">
-            Your account isn't linked to an organization yet. Create one to continue.
+            Your account isn't linked to an organization yet. Create one to continue —
+            you'll become its super admin and can invite admins and enumerators from
+            there.
           </p>
-        </div>
+
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
