@@ -18,6 +18,8 @@ import { useNavigate } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useAvatarUrl } from "@/hooks/useAvatarUrl";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sidebar,
@@ -52,9 +54,12 @@ export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
-  const { session, roles, hasAnyRole } = useAuth();
+  const { session, roles, hasAnyRole, organizationId } = useAuth();
   const userId = session?.user?.id;
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
+  const [orgName, setOrgName] = useState<string | null>(null);
+  const avatarSrc = useAvatarUrl(profile?.avatar_url);
+
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
 
