@@ -50,8 +50,35 @@ export default function Dashboard() {
   const [loadingStats, setLoadingStats] = useState(true);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
+  const [orgName, setOrgName] = useState<string | null>(null);
+  const [myName, setMyName] = useState<string | null>(null);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", uid)
+      .maybeSingle()
+      .then(({ data }) => setMyName(data?.full_name ?? null));
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!organizationId) {
+      setOrgName(null);
+      return;
+    }
+    supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", organizationId)
+      .maybeSingle()
+      .then(({ data }) => setOrgName(data?.name ?? null));
+  }, [organizationId]);
+
 
   useEffect(() => {
     if (!session?.user?.id) return;
