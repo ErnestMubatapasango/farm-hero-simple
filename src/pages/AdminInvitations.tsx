@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { relativeTime, daysSince } from "@/lib/relative-time";
 
 const STALE_DAYS = 7;
-type FilterKey = "all" | "pending" | "accepted" | "revoked";
+type FilterKey = "all" | "pending" | "accepted" | "revoked" | "failed";
 import {
   Select,
   SelectContent,
@@ -34,6 +34,7 @@ interface Invitation {
   invited_user_id: string | null;
   revoked_at: string | null;
   revoked_by: string | null;
+  last_error: string | null;
 }
 
 export default function AdminInvitations() {
@@ -62,9 +63,9 @@ export default function AdminInvitations() {
     if (showSpinner) setLoading(true);
     let query = supabase
       .from("invitations")
-      .select("id, email, role, status, created_at, accepted_at, invited_user_id, revoked_at, revoked_by")
+      .select("id, email, role, status, created_at, accepted_at, invited_user_id, revoked_at, revoked_by, last_error")
       .order("created_at", { ascending: false });
-    if (!hasRole("developer")) {
+    if (!hasRole("developer") && organizationId) {
       query = query.eq("organization_id", organizationId);
     }
     const { data } = await query;
@@ -213,6 +214,7 @@ export default function AdminInvitations() {
       case "accepted": return <CheckCircle className="h-4 w-4 text-green-500" />;
       case "expired": return <XCircle className="h-4 w-4 text-destructive" />;
       case "revoked": return <Ban className="h-4 w-4 text-muted-foreground" />;
+      case "failed": return <AlertTriangle className="h-4 w-4 text-destructive" />;
       default: return <Clock className="h-4 w-4 text-yellow-500" />;
     }
   };
@@ -295,12 +297,14 @@ export default function AdminInvitations() {
           all: invitations.length,
           pending: invitations.filter((i) => i.status === "pending").length,
           accepted: invitations.filter((i) => i.status === "accepted").length,
+          failed: invitations.filter((i) => i.status === "failed").length,
           revoked: invitations.filter((i) => i.status === "revoked").length,
         };
         const tabs: { key: FilterKey; label: string }[] = [
           { key: "all", label: "All" },
           { key: "pending", label: "Pending" },
           { key: "accepted", label: "Accepted" },
+          { key: "failed", label: "Failed" },
           { key: "revoked", label: "Revoked" },
         ];
         return (
@@ -345,6 +349,7 @@ export default function AdminInvitations() {
             const isAccepted = inv.status === "accepted";
             const isRevoked = inv.status === "revoked";
             const isPending = inv.status === "pending";
+            const isFailed = inv.status === "failed";
             const stale = isPending && daysSince(inv.created_at) >= STALE_DAYS;
             return (
               <div key={inv.id} className="flex items-center justify-between px-5 py-4">
@@ -359,30 +364,47 @@ export default function AdminInvitations() {
                           Stale · resend
                         </span>
                       )}
+                      {isFailed && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                          <AlertTriangle className="h-3 w-3" />
+                          Send failed
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground capitalize">
                       {inv.role.replace("_", " ")} · {inv.status}
                       {inv.created_at && ` · sent ${relativeTime(inv.created_at)}`}
                     </p>
+                    {isPending && inv.invited_user_id && (
+                      <p className="text-xs text-muted-foreground mt-1 normal-case">
+                        Invited — awaiting acceptance (no access until they set a password)
+                      </p>
+                    )}
                     {isAccepted && inv.accepted_at && (
                       <p className="text-xs text-green-600 mt-1 normal-case">
                         Accepted by {acceptedName || inv.email} · {relativeTime(inv.accepted_at)}
                       </p>
                     )}
+
                     {isRevoked && inv.revoked_at && (
                       <p className="text-xs text-muted-foreground mt-1 normal-case">
                         Access revoked {relativeTime(inv.revoked_at)}
                         {revokerName ? ` by ${revokerName}` : ""}
                       </p>
                     )}
+                    {isFailed && inv.last_error && (
+                      <p className="text-xs text-destructive mt-1 normal-case">
+                        {inv.last_error}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {isPending && isSuperAdmin && (
+                  {(isPending || isFailed) && isSuperAdmin && (
                     <button
                       onClick={() => handleResend(inv.id)}
                       className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      title="Resend invitation email"
+                      title={isFailed ? "Retry sending" : "Resend invitation email"}
                     >
                       <RefreshCw className="h-4 w-4" />
                     </button>

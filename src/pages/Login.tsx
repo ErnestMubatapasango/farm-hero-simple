@@ -5,11 +5,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Sprout, Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
+import { completePendingOrg, stashPendingOrg } from "@/lib/pendingOrg";
 
 type AuthMode = "signin" | "create-org";
 
 export default function Login() {
-  const { session } = useAuth();
+  const { session, refreshRoles } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<AuthMode>("signin");
@@ -28,9 +29,18 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
-    else navigate("/");
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+    // Pending-org completion is handled centrally in AuthProvider.
+    await refreshRoles();
+    navigate("/", { replace: true });
     setLoading(false);
   };
 
@@ -46,41 +56,37 @@ export default function Login() {
         password,
         options: {
           emailRedirectTo: window.location.origin,
-          data: { full_name: fullName },
+          data: { full_name: fullName, pending_org_name: orgName },
         },
       });
       if (signUpError) throw signUpError;
 
-      const userId = authData.user?.id;
-      if (!userId) {
-        setMessage("Check your email for a confirmation link.");
+      // The organization is created server-side at signup from the
+      // `pending_org_name` metadata. The localStorage stash is only a
+      // secondary fallback for older accounts / unexpected gaps.
+      stashPendingOrg({ name: orgName, full_name: fullName });
+
+      if (!authData.session) {
+        setMessage(
+          "Check your email to confirm your account. Your organization has been created and will be ready when you sign in.",
+        );
         setLoading(false);
         return;
       }
 
-      const slug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const { data: org, error: orgError } = await supabase
-        .from("organizations")
-        .insert({ name: orgName, slug, created_by: userId })
-        .select("id")
-        .single();
-      if (orgError) throw orgError;
+      // Immediate session (email confirmation off) → the trigger already ran.
+      const result = await completePendingOrg(authData.session.user.id);
+      if (result.error) throw new Error(result.error);
 
-      await supabase
-        .from("profiles")
-        .update({ organization_id: org.id, full_name: fullName })
-        .eq("user_id", userId);
-
-      await supabase
-        .from("user_roles")
-        .insert({ user_id: userId, organization_id: org.id, role: "super_admin" });
-
-      setMessage("Organization created! Check your email to confirm your account, then sign in.");
+      await refreshRoles();
+      setMessage("Organization created. Redirecting…");
+      navigate("/", { replace: true });
     } catch (err: any) {
       setError(err.message);
     }
     setLoading(false);
   };
+
 
   const getSubmitHandler = () => {
     if (mode === "create-org") return handleCreateOrg;
@@ -88,7 +94,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-8 sm:py-12 md:py-16">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
@@ -117,7 +123,7 @@ export default function Login() {
           </button>
         </div>
 
-        <form onSubmit={getSubmitHandler()} className="space-y-4">
+        <form onSubmit={getSubmitHandler()} className="space-y-5">
           {mode === "create-org" && (
             <>
               <div className="space-y-2">

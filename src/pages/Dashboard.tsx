@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { relativeTime } from "@/lib/relative-time";
+import { greeting } from "@/lib/greeting";
 import {
   Sprout,
   ChevronRight,
@@ -15,7 +16,9 @@ import {
   Send,
   Activity,
   Trophy,
+  Building2,
 } from "lucide-react";
+
 
 interface Stats {
   totalFarmers: number;
@@ -50,8 +53,35 @@ export default function Dashboard() {
   const [loadingStats, setLoadingStats] = useState(true);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
+  const [orgName, setOrgName] = useState<string | null>(null);
+  const [myName, setMyName] = useState<string | null>(null);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", uid)
+      .maybeSingle()
+      .then(({ data }) => setMyName(data?.full_name ?? null));
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!organizationId) {
+      setOrgName(null);
+      return;
+    }
+    supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", organizationId)
+      .maybeSingle()
+      .then(({ data }) => setOrgName(data?.name ?? null));
+  }, [organizationId]);
+
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -59,17 +89,31 @@ export default function Dashboard() {
     async function loadStats() {
       setLoadingStats(true);
 
-      // Farmers
-      let farmersQuery = supabase.from("farmers").select("status, enrolled_by");
-      if (!hasRole("developer") && organizationId) {
-        farmersQuery = farmersQuery.eq("organization_id", organizationId);
-      }
-      const enumeratorOnly = hasRole("enumerator") && !isAdmin;
-      if (enumeratorOnly && session?.user?.id) {
-        farmersQuery = farmersQuery.eq("enrolled_by", session.user.id);
-      }
-      const { data: farmersData } = await farmersQuery;
-      const farmers = farmersData || [];
+      const scopeFarmers = (q: any) => {
+        let out = q;
+        if (!hasRole("developer") && organizationId) {
+          out = out.eq("organization_id", organizationId);
+        }
+        const enumeratorOnly = hasRole("enumerator") && !isAdmin;
+        if (enumeratorOnly && session?.user?.id) {
+          out = out.eq("enrolled_by", session.user.id);
+        }
+        return out;
+      };
+
+      // Farmer counts — four head:true queries instead of loading every row
+      const [totalRes, submittedRes, verifiedRes, rejectedRes] = await Promise.all([
+        scopeFarmers(supabase.from("farmers").select("id", { count: "exact", head: true })),
+        scopeFarmers(
+          supabase.from("farmers").select("id", { count: "exact", head: true }).eq("status", "submitted")
+        ),
+        scopeFarmers(
+          supabase.from("farmers").select("id", { count: "exact", head: true }).eq("status", "verified")
+        ),
+        scopeFarmers(
+          supabase.from("farmers").select("id", { count: "exact", head: true }).eq("status", "rejected")
+        ),
+      ]);
 
       // Users (profiles)
       let usersCount = 0;
@@ -94,18 +138,24 @@ export default function Dashboard() {
       }
 
       setStats({
-        totalFarmers: farmers.length,
-        pendingFarmers: farmers.filter((f) => f.status === "submitted").length,
-        verifiedFarmers: farmers.filter((f) => f.status === "verified").length,
-        rejectedFarmers: farmers.filter((f) => f.status === "rejected").length,
+        totalFarmers: totalRes.count || 0,
+        pendingFarmers: submittedRes.count || 0,
+        verifiedFarmers: verifiedRes.count || 0,
+        rejectedFarmers: rejectedRes.count || 0,
         totalUsers: usersCount,
         pendingInvitations: pendingInvites,
       });
 
-      // Leaderboard (admins only) — top 5 enumerators by farmer count
+      // Leaderboard (admins only) — top 5 enumerators by farmer count.
+      // Still row-based, but capped and only for admins. Migrate to grouped SQL RPC in Phase 3.
       if (isAdmin) {
+        let leaderQuery = supabase.from("farmers").select("enrolled_by").not("enrolled_by", "is", null);
+        if (!hasRole("developer") && organizationId) {
+          leaderQuery = leaderQuery.eq("organization_id", organizationId);
+        }
+        const { data: leaderRows } = await leaderQuery;
         const counts = new Map<string, number>();
-        farmers.forEach((f: any) => {
+        (leaderRows || []).forEach((f: any) => {
           if (!f.enrolled_by) return;
           counts.set(f.enrolled_by, (counts.get(f.enrolled_by) || 0) + 1);
         });
@@ -130,6 +180,7 @@ export default function Dashboard() {
           setLeaderboard([]);
         }
       }
+
 
       // Recent activity
       let actQuery = supabase
@@ -181,14 +232,24 @@ export default function Dashboard() {
   }
 
   const email = session?.user?.email || "User";
+  const firstName = myName?.trim().split(" ")[0];
   const roleLabel = roles.length > 0 ? roles.map((r) => r.replace("_", " ")).join(", ") : "No role assigned";
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8">
       <div className="kyf-slide-up">
-        <h1 className="text-2xl font-bold text-foreground leading-tight">Welcome back</h1>
-        <p className="text-muted-foreground mt-1">{email}</p>
+        {orgName && (
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1">
+            <Building2 className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-medium text-foreground">{orgName}</span>
+          </div>
+        )}
+        <h1 className="text-2xl font-bold text-foreground leading-tight">
+          {greeting()}, {firstName || email}
+        </h1>
+        <p className="text-muted-foreground mt-1 capitalize">{roleLabel}</p>
       </div>
+
 
       {/* Stats cards */}
       {loadingStats ? (

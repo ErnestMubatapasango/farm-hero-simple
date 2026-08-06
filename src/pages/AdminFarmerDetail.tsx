@@ -23,8 +23,20 @@ import {
   Undo2,
 } from "lucide-react";
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
+import FarmerAnalyticsCard from "@/components/analytics/FarmerAnalyticsCard";
 import { hasAllRequiredDocs } from "@/components/farmer/RequiredDocumentsChecklist";
 import { StatusStepper } from "@/components/farmer/StatusStepper";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface FarmerDetail {
   id: string;
@@ -49,6 +61,7 @@ interface FarmerDetail {
   mobile_money_provider: string | null;
   status: string;
   notes: string | null;
+  rejection_reason: string | null;
   created_at: string;
   verified_at: string | null;
   enrolled_by: string | null;
@@ -133,6 +146,9 @@ export default function AdminFarmerDetail() {
   const [updating, setUpdating] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [requiredDocsOk, setRequiredDocsOk] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [reopenOpen, setReopenOpen] = useState(false);
 
   const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
   const isSuperAdmin = hasAnyRole(["super_admin", "developer"]);
@@ -263,18 +279,23 @@ export default function AdminFarmerDetail() {
 
   const reject = async () => {
     if (!farmer) return;
-    const note = window.prompt("Rejection reason (will be visible to enumerator):", farmer.notes || "");
-    if (note === null) return;
+    const note = rejectReason.trim();
+    if (!note) {
+      toast({ title: "Reason required", description: "Please provide a rejection reason.", variant: "destructive" });
+      return;
+    }
     setUpdating(true);
     const { error } = await supabase
       .from("farmers")
-      .update({ status: "rejected", notes: note || null })
+      .update({ status: "rejected", rejection_reason: note })
       .eq("id", farmer.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Farmer rejected" });
-      setFarmer((prev) => (prev ? { ...prev, status: "rejected", notes: note || null } : prev));
+      setFarmer((prev) => (prev ? { ...prev, status: "rejected", rejection_reason: note } : prev));
+      setRejectOpen(false);
+      setRejectReason("");
       await loadActivity(farmer.id);
     }
     setUpdating(false);
@@ -282,7 +303,6 @@ export default function AdminFarmerDetail() {
 
   const reopen = async () => {
     if (!farmer) return;
-    if (!window.confirm("Reopen this record and move it back to Submitted for re-review?")) return;
     setUpdating(true);
     const { error } = await supabase
       .from("farmers")
@@ -293,6 +313,7 @@ export default function AdminFarmerDetail() {
     } else {
       toast({ title: "Record reopened" });
       setFarmer((prev) => (prev ? { ...prev, status: "submitted", verified_at: null } : prev));
+      setReopenOpen(false);
       await loadActivity(farmer.id);
     }
     setUpdating(false);
@@ -392,7 +413,7 @@ export default function AdminFarmerDetail() {
               Verify Farmer
             </button>
             <button
-              onClick={reject}
+              onClick={() => { setRejectReason(farmer.rejection_reason || ""); setRejectOpen(true); }}
               disabled={updating}
               className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
             >
@@ -412,7 +433,7 @@ export default function AdminFarmerDetail() {
         )}
         {canReopen && (
           <button
-            onClick={reopen}
+            onClick={() => setReopenOpen(true)}
             disabled={updating}
             className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
           >
@@ -421,6 +442,56 @@ export default function AdminFarmerDetail() {
           </button>
         )}
       </div>
+
+      {/* Reject dialog */}
+      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject this farmer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Provide a reason. This will be visible to the enumerator.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Reason for rejection…"
+            rows={4}
+            autoFocus
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); reject(); }}
+              disabled={updating || !rejectReason.trim()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Reject Farmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reopen dialog */}
+      <AlertDialog open={reopenOpen} onOpenChange={setReopenOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reopen for review?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This moves the record back to Submitted so it can be re-reviewed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); reopen(); }}
+              disabled={updating}
+            >
+              Reopen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Activity log */}
       <div className="kyf-card p-5 space-y-3">
@@ -618,6 +689,23 @@ export default function AdminFarmerDetail() {
         canEdit={canEdit && !isLocked}
         isAdmin={isAdmin}
       />
+
+      {/* Analytics */}
+      <FarmerAnalyticsCard
+        farmerId={farmer.id}
+        farmerName={`${farmer.first_name} ${farmer.last_name}`}
+        farmSize={farmer.farm_size_hectares}
+        annualIncome={farmer.annual_income}
+      />
+
+
+      {/* Rejection reason (visible only when set) */}
+      {farmer.rejection_reason && (
+        <div className="kyf-card p-5 space-y-2 border-destructive/40">
+          <p className="text-sm font-semibold text-destructive">Rejection reason</p>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{farmer.rejection_reason}</p>
+        </div>
+      )}
 
       {/* Notes */}
       {farmer.notes && (

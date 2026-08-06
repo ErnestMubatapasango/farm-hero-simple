@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
+import { syncManager } from "@/lib/offline/syncManager";
+import { completePendingOrg } from "@/lib/pendingOrg";
 
 type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
 
@@ -37,14 +39,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session, fetchRolesAndOrg]);
 
+  // A user is treated as revoked only if they have a historical revoked
+  // invitation AND currently hold no active roles. This lets re-invited users
+  // regain access (their roles are re-inserted on acceptance) and avoids
+  // signing out brand-new sign-ups mid-onboarding.
   const checkRevoked = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from("invitations")
-      .select("id")
-      .eq("invited_user_id", userId)
-      .eq("status", "revoked")
-      .limit(1);
-    if (data && data.length > 0) {
+    const [rolesRes, revokedRes] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", userId).limit(1),
+      supabase
+        .from("invitations")
+        .select("id")
+        .eq("invited_user_id", userId)
+        .eq("status", "revoked")
+        .limit(1),
+    ]);
+    const hasRoles = (rolesRes.data?.length ?? 0) > 0;
+    const wasRevoked = (revokedRes.data?.length ?? 0) > 0;
+    if (wasRevoked && !hasRoles) {
       await supabase.auth.signOut();
       return true;
     }
@@ -52,15 +63,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const finalizeSession = async (uid: string) => {
+      const revoked = await checkRevoked(uid);
+      if (revoked) return;
+      await fetchRolesAndOrg(uid);
+      // Fallback: if a create-org intent was stashed at signup and the
+      // server-side trigger didn't create the org, complete it now.
+      const result = await completePendingOrg(uid);
+      if (result.created) await fetchRolesAndOrg(uid);
+      else if (result.error) console.error("Pending org completion failed:", result.error);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         if (session?.user?.id) {
           const uid = session.user.id;
-          setTimeout(async () => {
-            const revoked = await checkRevoked(uid);
-            if (!revoked) await fetchRolesAndOrg(uid);
-          }, 0);
+          setTimeout(() => { finalizeSession(uid); }, 0);
         } else {
           setRoles([]);
           setOrganizationId(null);
@@ -72,14 +91,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user?.id) {
-        const revoked = await checkRevoked(session.user.id);
-        if (!revoked) await fetchRolesAndOrg(session.user.id);
+        await finalizeSession(session.user.id);
       }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, [fetchRolesAndOrg, checkRevoked]);
+
+  // Start/stop offline sync manager when auth state changes
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (uid) {
+      syncManager.start(uid);
+    } else {
+      syncManager.stop();
+    }
+  }, [session?.user?.id]);
 
   // Realtime: sign out immediately if this user's invitation gets revoked
   useEffect(() => {

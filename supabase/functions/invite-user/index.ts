@@ -1,20 +1,51 @@
 // Invite a user to the caller's organization via Supabase Auth.
-// Caller must be authenticated and have super_admin or developer role.
+// Caller must be authenticated (JWT verified by the gateway) and hold
+// super_admin or developer role for the target org.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// Allowed origins for CORS. Add production domain(s) as needed.
+const ALLOWED_ORIGINS = [
+  "http://localhost:8080",
+  "http://localhost:5173",
+  // Lovable preview + published URLs share this suffix
+];
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+function corsFor(origin: string | null): Record<string, string> {
+  const allow =
+    origin &&
+    (ALLOWED_ORIGINS.includes(origin) ||
+      origin.endsWith(".lovable.app") ||
+      origin.endsWith(".lovableproject.com"))
+      ? origin
+      : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
+
+// Very small in-memory rate limiter (per caller id). Resets on cold start.
+const rateWindow = new Map<string, number[]>();
+const RATE_LIMIT = 20; // requests
+const RATE_WINDOW_MS = 60_000;
+function rateLimited(callerId: string): boolean {
+  const now = Date.now();
+  const arr = (rateWindow.get(callerId) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  arr.push(now);
+  rateWindow.set(callerId, arr);
+  return arr.length > RATE_LIMIT;
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsFor(req.headers.get("origin"));
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
@@ -34,6 +65,10 @@ Deno.serve(async (req) => {
     if (!callerId) throw new Error("No sub claim");
   } catch {
     return json({ error: "Unauthorized" }, 401);
+  }
+
+  if (rateLimited(callerId)) {
+    return json({ error: "Too many requests. Please slow down." }, 429);
   }
 
   let body: { email?: string; role?: string; action?: string; invitation_id?: string };
@@ -85,25 +120,73 @@ Deno.serve(async (req) => {
     if (!email || !["admin", "enumerator"].includes(role)) {
       return json({ error: "email and valid role required" }, 400);
     }
-    // Invite always targets the caller's own org. Developers must have a profile org.
     if (!orgId) return json({ error: "No organization" }, 400);
     if (!callerCanActOnOrg(orgId)) return json({ error: "Forbidden" }, 403);
+
+    // Pre-flight: does an auth user with this email already exist?
+    // inviteUserByEmail fails hard for existing users; detect it up-front to give a clear response.
+    let existingUserId: string | null = null;
+    try {
+      // listUsers doesn't support server-side email filter reliably; scan the first page.
+      const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const match = list?.users?.find((u) => (u.email ?? "").toLowerCase() === email);
+      if (match) existingUserId = match.id;
+    } catch (_) { /* ignore */ }
+
+    if (existingUserId) {
+      // Already a member of this org?
+      const { data: existingRoles } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", existingUserId)
+        .eq("organization_id", orgId);
+      if ((existingRoles?.length ?? 0) > 0) {
+        return json({ error: "This user is already a member of your organization." }, 409);
+      }
+      return json({
+        error:
+          "This email is already registered with another account. Ask them to sign in with their existing password — they can't be invited as a new user.",
+      }, 409);
+    }
+
+    // Insert the invitations row FIRST so acceptance logic has a target even
+    // if the email dispatch flakes.
+    const { data: invRow, error: rowErr } = await admin
+      .from("invitations")
+      .insert({
+        organization_id: orgId,
+        email,
+        role,
+        invited_by: callerId,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (rowErr) {
+      console.error("[invite-user] insert invitations failed:", rowErr);
+      return json({ error: "Invitation could not be recorded" }, 400);
+    }
 
     const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { organization_id: orgId, role, invited_by: callerId },
       redirectTo,
     });
-    if (inviteErr) return json({ error: inviteErr.message }, 400);
+    if (inviteErr) {
+      console.error("[invite-user] inviteUserByEmail failed:", inviteErr);
+      // Mark row as 'failed' (NOT 'revoked') and record the underlying reason so admins can retry.
+      await admin
+        .from("invitations")
+        .update({ status: "failed", last_error: inviteErr.message ?? "Unknown error" })
+        .eq("id", invRow.id);
+      return json({ error: `Invitation could not be sent: ${inviteErr.message ?? "unknown error"}` }, 400);
+    }
 
-    const { error: rowErr } = await admin.from("invitations").insert({
-      organization_id: orgId,
-      email,
-      role,
-      invited_by: callerId,
-      invited_user_id: invited.user?.id ?? null,
-      status: "pending",
-    });
-    if (rowErr) return json({ error: rowErr.message }, 400);
+    if (invited.user?.id) {
+      await admin
+        .from("invitations")
+        .update({ invited_user_id: invited.user.id })
+        .eq("id", invRow.id);
+    }
 
     return json({ ok: true });
   }
@@ -122,11 +205,18 @@ Deno.serve(async (req) => {
       data: { organization_id: inv.organization_id, role: inv.role, invited_by: callerId },
       redirectTo,
     });
-    if (inviteErr) return json({ error: inviteErr.message }, 400);
+    if (inviteErr) {
+      console.error("[invite-user] resend failed:", inviteErr);
+      await admin
+        .from("invitations")
+        .update({ status: "failed", last_error: inviteErr.message ?? "Unknown error" })
+        .eq("id", body.invitation_id);
+      return json({ error: inviteErr.message }, 400);
+    }
 
     await admin
       .from("invitations")
-      .update({ status: "pending", accepted_at: null })
+      .update({ status: "pending", accepted_at: null, last_error: null })
       .eq("id", body.invitation_id);
 
     return json({ ok: true });

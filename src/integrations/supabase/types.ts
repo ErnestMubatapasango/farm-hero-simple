@@ -21,6 +21,7 @@ export type Database = {
           computed_at: string
           computed_by: string | null
           created_at: string
+          engine_version: string
           farmer_id: string
           id: string
           inputs_hash: string | null
@@ -35,6 +36,7 @@ export type Database = {
           computed_at?: string
           computed_by?: string | null
           created_at?: string
+          engine_version?: string
           farmer_id: string
           id?: string
           inputs_hash?: string | null
@@ -49,6 +51,7 @@ export type Database = {
           computed_at?: string
           computed_by?: string | null
           created_at?: string
+          engine_version?: string
           farmer_id?: string
           id?: string
           inputs_hash?: string | null
@@ -57,7 +60,15 @@ export type Database = {
           score?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "credit_scores_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: true
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crop_yield_history: {
         Row: {
@@ -103,6 +114,56 @@ export type Database = {
           },
         ]
       }
+      farm_health_scores: {
+        Row: {
+          band: string
+          breakdown: Json
+          computed_at: string
+          computed_by: string | null
+          created_at: string
+          engine_version: string
+          farmer_id: string
+          id: string
+          organization_id: string
+          score: number
+          updated_at: string
+        }
+        Insert: {
+          band: string
+          breakdown?: Json
+          computed_at?: string
+          computed_by?: string | null
+          created_at?: string
+          engine_version?: string
+          farmer_id: string
+          id?: string
+          organization_id: string
+          score: number
+          updated_at?: string
+        }
+        Update: {
+          band?: string
+          breakdown?: Json
+          computed_at?: string
+          computed_by?: string | null
+          created_at?: string
+          engine_version?: string
+          farmer_id?: string
+          id?: string
+          organization_id?: string
+          score?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farm_health_scores_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: true
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farmer_activity_log: {
         Row: {
           action: string
@@ -140,7 +201,15 @@ export type Database = {
           organization_id?: string
           to_status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "farmer_activity_log_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       farmer_crops: {
         Row: {
@@ -235,7 +304,15 @@ export type Database = {
           verified_at?: string | null
           verified_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "farmer_documents_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       farmers: {
         Row: {
@@ -261,6 +338,7 @@ export type Database = {
           primary_crops: string[] | null
           primary_livestock: string[] | null
           region: string | null
+          rejection_reason: string | null
           status: string
           submitted_at: string | null
           updated_at: string
@@ -293,6 +371,7 @@ export type Database = {
           primary_crops?: string[] | null
           primary_livestock?: string[] | null
           region?: string | null
+          rejection_reason?: string | null
           status?: string
           submitted_at?: string | null
           updated_at?: string
@@ -325,6 +404,7 @@ export type Database = {
           primary_crops?: string[] | null
           primary_livestock?: string[] | null
           region?: string | null
+          rejection_reason?: string | null
           status?: string
           submitted_at?: string | null
           updated_at?: string
@@ -353,6 +433,7 @@ export type Database = {
           id: string
           invited_by: string
           invited_user_id: string | null
+          last_error: string | null
           organization_id: string
           revoked_at: string | null
           revoked_by: string | null
@@ -367,6 +448,7 @@ export type Database = {
           id?: string
           invited_by: string
           invited_user_id?: string | null
+          last_error?: string | null
           organization_id: string
           revoked_at?: string | null
           revoked_by?: string | null
@@ -381,6 +463,7 @@ export type Database = {
           id?: string
           invited_by?: string
           invited_user_id?: string | null
+          last_error?: string | null
           organization_id?: string
           revoked_at?: string | null
           revoked_by?: string | null
@@ -464,6 +547,7 @@ export type Database = {
           full_name: string | null
           id: string
           organization_id: string | null
+          phone: string | null
           preferred_currency: string
           updated_at: string | null
           user_id: string
@@ -474,6 +558,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           organization_id?: string | null
+          phone?: string | null
           preferred_currency?: string
           updated_at?: string | null
           user_id: string
@@ -484,6 +569,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           organization_id?: string | null
+          phone?: string | null
           preferred_currency?: string
           updated_at?: string | null
           user_id?: string
@@ -545,6 +631,7 @@ export type Database = {
           id: string
           invited_by: string
           invited_user_id: string | null
+          last_error: string | null
           organization_id: string
           revoked_at: string | null
           revoked_by: string | null
@@ -560,6 +647,57 @@ export type Database = {
       }
       can_edit_farmer: { Args: { _farmer_id: string }; Returns: boolean }
       can_view_farmer: { Args: { _farmer_id: string }; Returns: boolean }
+      compute_credit_score: {
+        Args: { _farmer_id: string }
+        Returns: {
+          band: string
+          breakdown: Json
+          computed_at: string
+          computed_by: string | null
+          created_at: string
+          engine_version: string
+          farmer_id: string
+          id: string
+          inputs_hash: string | null
+          organization_id: string
+          recommendations: Json
+          score: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "credit_scores"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      compute_farm_health: {
+        Args: { _farmer_id: string }
+        Returns: {
+          band: string
+          breakdown: Json
+          computed_at: string
+          computed_by: string | null
+          created_at: string
+          engine_version: string
+          farmer_id: string
+          id: string
+          organization_id: string
+          score: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "farm_health_scores"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_organization: {
+        Args: { _name: string; _slug: string }
+        Returns: string
+      }
+      ensure_platform_developer: { Args: { _email?: string }; Returns: string }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_role:
         | {
@@ -598,6 +736,7 @@ export type Database = {
           id: string
           invited_by: string
           invited_user_id: string | null
+          last_error: string | null
           organization_id: string
           revoked_at: string | null
           revoked_by: string | null
@@ -610,6 +749,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      save_farmer: {
+        Args: {
+          _crops: Json
+          _farmer_id: string
+          _payload: Json
+          _yields: Json
+        }
+        Returns: string
       }
       set_user_roles: {
         Args: {

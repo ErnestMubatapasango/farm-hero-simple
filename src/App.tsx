@@ -8,7 +8,9 @@ import { CurrencyProvider } from "@/hooks/useCurrency";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { RoleRoute } from "@/components/RoleRoute";
+import { RequireOrg } from "@/components/RequireOrg";
 import { AppLayout } from "@/components/AppLayout";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import Dashboard from "./pages/Dashboard";
 import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
@@ -27,6 +29,7 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AcceptInvite from "./pages/AcceptInvite";
+import SetupOrganization from "./pages/SetupOrganization";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +39,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <InstallPrompt />
       <BrowserRouter>
         <AuthProvider>
           <CurrencyProvider>
@@ -45,18 +49,20 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route element={<ProtectedRoute />}>
+              <Route path="/setup-organization" element={<SetupOrganization />} />
+              <Route element={<RequireOrg />}>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/analytics" element={<Analytics />} />
-                <Route path="/credit-score" element={<CreditScore />} />
-                <Route path="/credit-score/:farmerId" element={<CreditScoreDetail />} />
                 <Route path="/admin/farmers" element={<AdminFarmers />} />
                 <Route path="/admin/farmer/:userId" element={<AdminFarmerDetail />} />
                 <Route path="/admin/farmer/:userId/edit" element={<EditFarmer />} />
                 <Route element={<AdminRoute />}>
+                  <Route path="/credit-score" element={<CreditScore />} />
+                  <Route path="/credit-score/:farmerId" element={<CreditScoreDetail />} />
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/admin/users" element={<AdminUsers />} />
                   <Route path="/admin/roles" element={<AdminRoles />} />
@@ -64,6 +70,7 @@ const App = () => (
                 <Route element={<RoleRoute allow={["super_admin", "developer"]} />}>
                   <Route path="/admin/invitations" element={<AdminInvitations />} />
                 </Route>
+              </Route>
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
