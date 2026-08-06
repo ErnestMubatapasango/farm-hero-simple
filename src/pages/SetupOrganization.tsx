@@ -67,6 +67,7 @@ export default function SetupOrganization() {
             you'll become its super admin and can invite admins and enumerators from
             there.
           </p>
+        </div>
 
 
         <form onSubmit={handleSubmit} className="space-y-5">
