@@ -16,13 +16,19 @@ const REQUIRED: { value: string; label: string }[] = [
 
 type DocState = "verified" | "pending" | "rejected" | "missing";
 
+function matches(docs: DocSummary[], type: string) {
+  const aliases = type === "id" ? ["id", "national_id"] : [type];
+  return docs.filter((d) => aliases.includes(d.document_type));
+}
+
 function deriveState(docs: DocSummary[], type: string): DocState {
-  const matching = docs.filter((d) => d.document_type === type);
+  const matching = matches(docs, type);
   if (matching.some((d) => d.status === "verified")) return "verified";
   if (matching.some((d) => d.status === "pending")) return "pending";
   if (matching.some((d) => d.status === "rejected")) return "rejected";
   return "missing";
 }
+
 
 function stateMeta(state: DocState) {
   switch (state) {
