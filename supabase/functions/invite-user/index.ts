@@ -7,6 +7,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const ALLOWED_ORIGINS = [
   "http://localhost:8080",
   "http://localhost:5173",
+  "https://kyfplatform.org",
+  "https://www.kyfplatform.org",
+  "https://kyf2.lovable.app",
   // Lovable preview + published URLs share this suffix
 ];
 
@@ -22,9 +25,11 @@ function corsFor(origin: string | null): Record<string, string> {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   };
 }
+
 
 // Very small in-memory rate limiter (per caller id). Resets on cold start.
 const rateWindow = new Map<string, number[]>();

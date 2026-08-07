@@ -16,13 +16,19 @@ const REQUIRED: { value: string; label: string }[] = [
 
 type DocState = "verified" | "pending" | "rejected" | "missing";
 
+function matches(docs: DocSummary[], type: string) {
+  const aliases = type === "id" ? ["id", "national_id"] : [type];
+  return docs.filter((d) => aliases.includes(d.document_type));
+}
+
 function deriveState(docs: DocSummary[], type: string): DocState {
-  const matching = docs.filter((d) => d.document_type === type);
+  const matching = matches(docs, type);
   if (matching.some((d) => d.status === "verified")) return "verified";
   if (matching.some((d) => d.status === "pending")) return "pending";
   if (matching.some((d) => d.status === "rejected")) return "rejected";
   return "missing";
 }
+
 
 function stateMeta(state: DocState) {
   switch (state) {
@@ -38,11 +44,11 @@ function stateMeta(state: DocState) {
 }
 
 export function hasAllRequiredDocs(docs: DocSummary[]): boolean {
-  return REQUIRED.every((r) => {
-    const matching = docs.filter((d) => d.document_type === r.value);
-    return matching.some((d) => d.status === "verified" || d.status === "pending");
-  });
+  return REQUIRED.every((r) =>
+    matches(docs, r.value).some((d) => d.status !== "rejected")
+  );
 }
+
 
 export default function RequiredDocumentsChecklist({ docs }: Props) {
   const states = REQUIRED.map((r) => ({ ...r, state: deriveState(docs, r.value) }));
