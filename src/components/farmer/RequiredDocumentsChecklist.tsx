@@ -44,11 +44,11 @@ function stateMeta(state: DocState) {
 }
 
 export function hasAllRequiredDocs(docs: DocSummary[]): boolean {
-  return REQUIRED.every((r) => {
-    const matching = docs.filter((d) => d.document_type === r.value);
-    return matching.some((d) => d.status === "verified" || d.status === "pending");
-  });
+  return REQUIRED.every((r) =>
+    matches(docs, r.value).some((d) => d.status !== "rejected")
+  );
 }
+
 
 export default function RequiredDocumentsChecklist({ docs }: Props) {
   const states = REQUIRED.map((r) => ({ ...r, state: deriveState(docs, r.value) }));
