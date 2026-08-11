@@ -151,7 +151,7 @@ export function AppSidebar() {
                 <p className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Administration</p>
               )}
               <SidebarMenu>
-                {adminNav.map((item) => (
+                {adminNav.filter((item) => !item.ownerOnly || isOwner).map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                     <NavLink
