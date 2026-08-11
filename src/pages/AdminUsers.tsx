@@ -215,7 +215,7 @@ export default function AdminUsers() {
           </DialogHeader>
 
           <div className="space-y-3 py-2">
-            {ASSIGNABLE_ROLES.map((r) => (
+            {assignableRoles.map((r) => (
               <label
                 key={r.key}
                 className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
