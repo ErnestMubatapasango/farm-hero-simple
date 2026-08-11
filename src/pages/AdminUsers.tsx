@@ -13,14 +13,14 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { canGrantRole, canManageRoles, type AppRole } from "@/lib/permissions";
 
-type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
-
-const ASSIGNABLE_ROLES: { key: AppRole; label: string; description: string }[] = [
+const ROLE_OPTIONS: { key: AppRole; label: string; description: string }[] = [
   { key: "super_admin", label: "Super Admin", description: "Full org control, can manage users & roles." },
-  { key: "admin", label: "Admin", description: "Verify farmers, view all data." },
+  { key: "admin", label: "Admin", description: "Verify farmers, view all data. No people management." },
   { key: "enumerator", label: "Enumerator", description: "Enroll farmers and edit their own drafts." },
 ];
+
 
 interface MemberRow {
   user_id: string;
