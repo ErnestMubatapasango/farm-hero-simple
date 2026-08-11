@@ -99,13 +99,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (_event, session) => {
         setSession(session);
         if (session?.user?.id) {
           const uid = session.user.id;
-          if (event === "SIGNED_IN" || event === "INITIAL_SESSION") writeLastActivity(uid);
           setTimeout(() => { finalizeSession(uid); }, 0);
         } else {
+
           setRoles([]);
           setOrganizationId(null);
         }
