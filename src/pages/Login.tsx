@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Sprout, Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { completePendingOrg, stashPendingOrg } from "@/lib/pendingOrg";
+import { consumeIdleLogout } from "@/lib/idle";
+
 
 type AuthMode = "signin" | "create-org";
 
