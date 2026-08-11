@@ -63,7 +63,7 @@ function RoleBadge({ role }: { role: AppRole }) {
 }
 
 export default function AdminUsers() {
-  const { organizationId, hasAnyRole, session } = useAuth();
+  const { organizationId, roles, session } = useAuth();
   const { toast } = useToast();
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +71,9 @@ export default function AdminUsers() {
   const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const canManage = hasAnyRole(["super_admin", "developer"]);
+  const canManage = canManageRoles(roles);
+  const assignableRoles = ROLE_OPTIONS.filter((r) => canGrantRole(roles, r.key));
+
 
   const load = useCallback(async () => {
     if (!organizationId) return;
