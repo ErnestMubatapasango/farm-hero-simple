@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { isOrgAdmin, canOnboardFarmers } from "@/lib/permissions";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -102,7 +103,7 @@ interface FarmerFormProps {
 }
 
 export default function FarmerForm({ mode, initialData, farmerId, title, subtitle }: FarmerFormProps) {
-  const { session, organizationId, hasAnyRole } = useAuth();
+  const { roles, session, organizationId, hasAnyRole } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("personal");
@@ -110,7 +111,7 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
   const [submitting, setSubmitting] = useState(false);
   const [savedFarmer, setSavedFarmer] = useState<{ id: string; name: string } | null>(null);
 
-  const canOnboard = hasAnyRole(["enumerator", "admin", "super_admin", "developer"]);
+  const canOnboard = canOnboardFarmers(roles);
 
   if (!canOnboard) {
     return (
@@ -263,7 +264,7 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
           farmerId={savedFarmer.id}
           organizationId={organizationId}
           canEdit
-          isAdmin={hasAnyRole(["admin", "super_admin", "developer"])}
+          isAdmin={isOrgAdmin(roles)}
         />
 
         <div className="flex flex-col sm:flex-row gap-2 justify-end">

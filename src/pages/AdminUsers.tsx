@@ -13,14 +13,14 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { canGrantRole, canManageRoles, type AppRole } from "@/lib/permissions";
 
-type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
-
-const ASSIGNABLE_ROLES: { key: AppRole; label: string; description: string }[] = [
+const ROLE_OPTIONS: { key: AppRole; label: string; description: string }[] = [
   { key: "super_admin", label: "Super Admin", description: "Full org control, can manage users & roles." },
-  { key: "admin", label: "Admin", description: "Verify farmers, view all data." },
+  { key: "admin", label: "Admin", description: "Verify farmers, view all data. No people management." },
   { key: "enumerator", label: "Enumerator", description: "Enroll farmers and edit their own drafts." },
 ];
+
 
 interface MemberRow {
   user_id: string;
@@ -63,7 +63,7 @@ function RoleBadge({ role }: { role: AppRole }) {
 }
 
 export default function AdminUsers() {
-  const { organizationId, hasAnyRole, session } = useAuth();
+  const { organizationId, roles, session } = useAuth();
   const { toast } = useToast();
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +71,9 @@ export default function AdminUsers() {
   const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const canManage = hasAnyRole(["super_admin", "developer"]);
+  const canManage = canManageRoles(roles);
+  const assignableRoles = ROLE_OPTIONS.filter((r) => canGrantRole(roles, r.key));
+
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -135,8 +137,10 @@ export default function AdminUsers() {
         <h1 className="text-2xl font-bold text-foreground">Users</h1>
         <p className="text-muted-foreground mt-1">
           {members.length} user{members.length === 1 ? "" : "s"} in your organization.
+          {!canManage && " Role changes are limited to super admins."}
         </p>
       </div>
+
 
       <div className="kyf-card-flat divide-y divide-border">
         {members.length === 0 ? (
@@ -213,7 +217,7 @@ export default function AdminUsers() {
           </DialogHeader>
 
           <div className="space-y-3 py-2">
-            {ASSIGNABLE_ROLES.map((r) => (
+            {assignableRoles.map((r) => (
               <label
                 key={r.key}
                 className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors"

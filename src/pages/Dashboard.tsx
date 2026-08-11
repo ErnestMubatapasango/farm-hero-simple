@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { isOrgAdmin, isOrgOwner, isPlatformDeveloper, isFieldAgentOnly, canOnboardFarmers } from "@/lib/permissions";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { relativeTime } from "@/lib/relative-time";
@@ -56,7 +57,7 @@ export default function Dashboard() {
   const [orgName, setOrgName] = useState<string | null>(null);
   const [myName, setMyName] = useState<string | null>(null);
 
-  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+  const isAdmin = isOrgAdmin(roles);
 
   useEffect(() => {
     const uid = session?.user?.id;
@@ -91,10 +92,10 @@ export default function Dashboard() {
 
       const scopeFarmers = (q: any) => {
         let out = q;
-        if (!hasRole("developer") && organizationId) {
+        if (!isPlatformDeveloper(roles) && organizationId) {
           out = out.eq("organization_id", organizationId);
         }
-        const enumeratorOnly = hasRole("enumerator") && !isAdmin;
+        const enumeratorOnly = isFieldAgentOnly(roles);
         if (enumeratorOnly && session?.user?.id) {
           out = out.eq("enrolled_by", session.user.id);
         }
@@ -119,7 +120,7 @@ export default function Dashboard() {
       let usersCount = 0;
       if (isAdmin) {
         let usersQuery = supabase.from("profiles").select("user_id", { count: "exact", head: true });
-        if (!hasRole("developer") && organizationId) {
+        if (!isPlatformDeveloper(roles) && organizationId) {
           usersQuery = usersQuery.eq("organization_id", organizationId);
         }
         const { count } = await usersQuery;
@@ -130,7 +131,7 @@ export default function Dashboard() {
       let pendingInvites = 0;
       if (isAdmin) {
         let invQuery = supabase.from("invitations").select("id", { count: "exact", head: true }).eq("status", "pending");
-        if (!hasRole("developer") && organizationId) {
+        if (!isPlatformDeveloper(roles) && organizationId) {
           invQuery = invQuery.eq("organization_id", organizationId);
         }
         const { count } = await invQuery;
@@ -150,7 +151,7 @@ export default function Dashboard() {
       // Still row-based, but capped and only for admins. Migrate to grouped SQL RPC in Phase 3.
       if (isAdmin) {
         let leaderQuery = supabase.from("farmers").select("enrolled_by").not("enrolled_by", "is", null);
-        if (!hasRole("developer") && organizationId) {
+        if (!isPlatformDeveloper(roles) && organizationId) {
           leaderQuery = leaderQuery.eq("organization_id", organizationId);
         }
         const { data: leaderRows } = await leaderQuery;
@@ -188,7 +189,7 @@ export default function Dashboard() {
         .select("id, action, from_status, to_status, created_at, farmer_id, actor_id")
         .order("created_at", { ascending: false })
         .limit(8);
-      if (!hasRole("developer") && organizationId) {
+      if (!isPlatformDeveloper(roles) && organizationId) {
         actQuery = actQuery.eq("organization_id", organizationId);
       }
       const { data: actData } = await actQuery;
@@ -307,7 +308,7 @@ export default function Dashboard() {
       <div>
         <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-3">Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {hasAnyRole(["enumerator", "admin", "super_admin", "developer"]) && (
+          {canOnboardFarmers(roles) && (
             <QuickAction
               to="/onboarding"
               icon={UserPlus}
@@ -323,7 +324,7 @@ export default function Dashboard() {
               description={`${stats?.pendingFarmers || 0} pending review`}
             />
           )}
-          {hasRole("enumerator") && !isAdmin && (
+          {isFieldAgentOnly(roles) && (
             <QuickAction
               to="/admin/farmers"
               icon={Sprout}
@@ -331,7 +332,7 @@ export default function Dashboard() {
               description={`${stats?.totalFarmers || 0} you've onboarded`}
             />
           )}
-          {hasAnyRole(["super_admin", "developer"]) && (
+          {isOrgOwner(roles) && (
             <QuickAction
               to="/admin/invitations"
               icon={Send}

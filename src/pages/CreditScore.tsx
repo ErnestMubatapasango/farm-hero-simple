@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Search, Gauge, RefreshCw, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,7 @@ function bandColor(score: number) {
 }
 
 export default function CreditScore() {
-  const { session, organizationId, hasRole, hasAnyRole } = useAuth();
+  const { roles, session, organizationId, hasRole, hasAnyRole } = useAuth();
   const { toast } = useToast();
   const [farmers, setFarmers] = useState<FarmerRow[]>([]);
   const [scores, setScores] = useState<Record<string, ScoreRow>>({});
@@ -43,8 +44,8 @@ export default function CreditScore() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
 
-  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
-  const enumeratorOnly = hasRole("enumerator") && !isAdmin;
+  const isAdmin = isOrgAdmin(roles);
+  const enumeratorOnly = isFieldAgentOnly(roles);
 
   const load = async () => {
     setLoading(true);
@@ -52,7 +53,7 @@ export default function CreditScore() {
       .from("farmers")
       .select("id, first_name, last_name, region, primary_crops, status, enrolled_by")
       .order("created_at", { ascending: false });
-    if (!hasRole("developer") && organizationId) {
+    if (!isPlatformDeveloper(roles) && organizationId) {
       q = q.eq("organization_id", organizationId);
     }
     if (enumeratorOnly && session?.user?.id) {

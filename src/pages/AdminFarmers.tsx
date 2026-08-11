@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -85,13 +86,13 @@ function escapeIlike(value: string) {
 }
 
 export default function AdminFarmers() {
-  const { session, organizationId, hasRole, hasAnyRole } = useAuth();
+  const { roles, session, organizationId, hasRole, hasAnyRole } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
-  const enumeratorOnly = hasRole("enumerator") && !isAdmin;
+  const isAdmin = isOrgAdmin(roles);
+  const enumeratorOnly = isFieldAgentOnly(roles);
 
   // URL-backed state
   const statusFilter = searchParams.get("status") || "all";
@@ -153,7 +154,7 @@ export default function AdminFarmers() {
       let q = withCount
         ? supabase.from("farmers").select(cols, { count: "exact" })
         : supabase.from("farmers").select(cols);
-      if (!hasRole("developer") && organizationId) {
+      if (!isPlatformDeveloper(roles) && organizationId) {
         q = q.eq("organization_id", organizationId);
       }
       return q;
