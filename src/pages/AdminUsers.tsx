@@ -137,8 +137,10 @@ export default function AdminUsers() {
         <h1 className="text-2xl font-bold text-foreground">Users</h1>
         <p className="text-muted-foreground mt-1">
           {members.length} user{members.length === 1 ? "" : "s"} in your organization.
+          {!canManage && " Role changes are limited to super admins."}
         </p>
       </div>
+
 
       <div className="kyf-card-flat divide-y divide-border">
         {members.length === 0 ? (
