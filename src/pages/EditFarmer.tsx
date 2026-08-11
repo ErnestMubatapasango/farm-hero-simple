@@ -21,10 +21,11 @@ export default function EditFarmer() {
     async function load() {
       if (!farmerId) return;
       setLoading(true);
-      const [{ data: farmer }, { data: crops }, { data: yields }] = await Promise.all([
+      const [{ data: farmer }, { data: crops }, { data: yields }, { data: canEdit }] = await Promise.all([
         supabase.from("farmers").select("*").eq("id", farmerId).maybeSingle(),
         supabase.from("farmer_crops").select("*").eq("farmer_id", farmerId).order("position"),
         supabase.from("crop_yield_history").select("*").eq("farmer_id", farmerId),
+        supabase.rpc("can_edit_farmer", { _farmer_id: farmerId }),
       ]);
 
       if (cancelled) return;
@@ -34,11 +35,8 @@ export default function EditFarmer() {
         return;
       }
 
-      const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
-      const isOwnerEditable =
-        farmer.enrolled_by === session?.user?.id &&
-        (farmer.status === "draft" || farmer.status === "rejected");
-      setEditable(isAdmin || isOwnerEditable);
+      setEditable(canEdit === true);
+
       setStatus(farmer.status);
 
       const farmingMethods: Record<string, string> = {};
