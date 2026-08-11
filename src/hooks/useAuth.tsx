@@ -3,6 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { syncManager } from "@/lib/offline/syncManager";
 import { completePendingOrg } from "@/lib/pendingOrg";
+import {
+  IDLE_TIMEOUT_MS,
+  clearLastActivity,
+  markIdleLogout,
+  readLastActivity,
+  writeLastActivity,
+} from "@/lib/idle";
+
 
 type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
 
