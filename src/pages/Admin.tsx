@@ -1,21 +1,37 @@
 import { Link } from "react-router-dom";
 import { Users, KeyRound, BarChart3, Sprout, Send } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { isOrgOwner } from "@/lib/permissions";
 
 export default function Admin() {
+  const { roles } = useAuth();
+  const isOwner = isOrgOwner(roles);
+
+  const tiles = [
+    { title: "Farmers", description: "Review and verify farmer records", icon: Sprout, to: "/admin/farmers" },
+    {
+      title: "Users",
+      description: isOwner ? "Manage platform users" : "View your team members",
+      icon: Users,
+      to: "/admin/users",
+    },
+    { title: "Invitations", description: "Invite admins and enumerators", icon: Send, to: "/admin/invitations", ownerOnly: true },
+    { title: "Roles", description: "Assign and manage roles", icon: KeyRound, to: "/admin/roles", ownerOnly: true },
+    { title: "Overview", description: "Organization analytics", icon: BarChart3, to: "/analytics" },
+  ].filter((t) => !t.ownerOnly || isOwner);
+
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Administration</h1>
-        <p className="text-muted-foreground mt-1">Manage users, roles, farmers, and organization settings.</p>
+        <p className="text-muted-foreground mt-1">
+          {isOwner
+            ? "Manage users, roles, farmers, and organization settings."
+            : "Review farmers and organization analytics."}
+        </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[
-          { title: "Farmers", description: "Review and verify farmer records", icon: Sprout, to: "/admin/farmers" },
-          { title: "Users", description: "Manage platform users", icon: Users, to: "/admin/users" },
-          { title: "Invitations", description: "Invite admins and enumerators", icon: Send, to: "/admin/invitations" },
-          { title: "Roles", description: "Assign and manage roles", icon: KeyRound, to: "/admin/roles" },
-          { title: "Overview", description: "Organization analytics", icon: BarChart3, to: "/analytics" },
-        ].map((item) => (
+        {tiles.map((item) => (
           <Link
             key={item.title}
             to={item.to}

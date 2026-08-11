@@ -1,8 +1,9 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { isOrgAdmin } from "@/lib/permissions";
 
 export function AdminRoute() {
-  const { hasAnyRole, loading } = useAuth();
+  const { roles, loading } = useAuth();
 
   if (loading) {
     return (
@@ -12,7 +13,7 @@ export function AdminRoute() {
     );
   }
 
-  if (!hasAnyRole(["admin", "super_admin", "developer"])) {
+  if (!isOrgAdmin(roles)) {
     return <Navigate to="/" replace />;
   }
 
