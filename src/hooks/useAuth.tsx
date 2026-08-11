@@ -71,7 +71,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Enforce the inactivity window on app start: if the stored last-activity
+    // timestamp is older than the limit, drop the restored session.
+    const expiredByInactivity = async (uid: string) => {
+      const last = readLastActivity(uid);
+      if (last === null) {
+        writeLastActivity(uid);
+        return false;
+      }
+      if (Date.now() - last < IDLE_TIMEOUT_MS) return false;
+      markIdleLogout();
+      clearLastActivity(uid);
+      await supabase.auth.signOut();
+      return true;
+    };
+
     const finalizeSession = async (uid: string) => {
+      if (await expiredByInactivity(uid)) return;
       const revoked = await checkRevoked(uid);
       if (revoked) return;
       await fetchRolesAndOrg(uid);
@@ -83,10 +99,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         setSession(session);
         if (session?.user?.id) {
           const uid = session.user.id;
+          if (event === "SIGNED_IN" || event === "INITIAL_SESSION") writeLastActivity(uid);
           setTimeout(() => { finalizeSession(uid); }, 0);
         } else {
           setRoles([]);
@@ -103,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false);
     });
+
 
     return () => subscription.unsubscribe();
   }, [fetchRolesAndOrg, checkRevoked]);
