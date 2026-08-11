@@ -3,6 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { syncManager } from "@/lib/offline/syncManager";
 import { completePendingOrg } from "@/lib/pendingOrg";
+import {
+  IDLE_TIMEOUT_MS,
+  clearLastActivity,
+  markIdleLogout,
+  readLastActivity,
+  writeLastActivity,
+} from "@/lib/idle";
+
 
 type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
 
@@ -63,7 +71,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Enforce the inactivity window on app start: if the stored last-activity
+    // timestamp is older than the limit, drop the restored session.
+    const expiredByInactivity = async (uid: string) => {
+      const last = readLastActivity(uid);
+      if (last === null) {
+        writeLastActivity(uid);
+        return false;
+      }
+      if (Date.now() - last < IDLE_TIMEOUT_MS) return false;
+      markIdleLogout();
+      clearLastActivity(uid);
+      await supabase.auth.signOut();
+      return true;
+    };
+
     const finalizeSession = async (uid: string) => {
+      if (await expiredByInactivity(uid)) return;
       const revoked = await checkRevoked(uid);
       if (revoked) return;
       await fetchRolesAndOrg(uid);
@@ -81,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const uid = session.user.id;
           setTimeout(() => { finalizeSession(uid); }, 0);
         } else {
+
           setRoles([]);
           setOrganizationId(null);
         }
@@ -95,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false);
     });
+
 
     return () => subscription.unsubscribe();
   }, [fetchRolesAndOrg, checkRevoked]);

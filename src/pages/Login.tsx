@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Sprout, Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { completePendingOrg, stashPendingOrg } from "@/lib/pendingOrg";
+import { consumeIdleLogout } from "@/lib/idle";
+
 
 type AuthMode = "signin" | "create-org";
 
@@ -22,8 +24,14 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [idleNotice, setIdleNotice] = useState(false);
+
+  useEffect(() => {
+    if (consumeIdleLogout()) setIdleNotice(true);
+  }, []);
 
   if (session) return <Navigate to="/" replace />;
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +113,14 @@ export default function Login() {
             {mode === "create-org" ? "Create your organization" : "Sign in to continue"}
           </p>
         </div>
+
+        {idleNotice && (
+          <div className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+            You were signed out after 30 minutes of inactivity. Please sign in again.
+          </div>
+        )}
+
+
 
         <div className="flex rounded-lg bg-muted p-1">
           <button
