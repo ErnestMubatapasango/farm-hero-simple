@@ -24,8 +24,14 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [idleNotice, setIdleNotice] = useState(false);
+
+  useEffect(() => {
+    if (consumeIdleLogout()) setIdleNotice(true);
+  }, []);
 
   if (session) return <Navigate to="/" replace />;
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
