@@ -114,6 +114,14 @@ export default function Login() {
           </p>
         </div>
 
+        {idleNotice && (
+          <div className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+            You were signed out after 30 minutes of inactivity. Please sign in again.
+          </div>
+        )}
+
+
+
         <div className="flex rounded-lg bg-muted p-1">
           <button
             type="button"
