@@ -19,6 +19,8 @@ import { NavLink } from "@/components/NavLink";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAvatarUrl } from "@/hooks/useAvatarUrl";
+import { isOrgAdmin, isOrgOwner } from "@/lib/permissions";
+
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
