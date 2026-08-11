@@ -86,7 +86,7 @@ export default function EditFarmer() {
     return () => {
       cancelled = true;
     };
-  }, [farmerId, session?.user?.id, hasAnyRole]);
+  }, [farmerId, session?.user?.id]);
 
   if (loading) {
     return (
