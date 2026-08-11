@@ -7,7 +7,7 @@ import FarmerForm, { FarmerFormState, emptyFarmerForm } from "@/components/onboa
 
 export default function EditFarmer() {
   const { userId: farmerId } = useParams<{ userId: string }>();
-  const { session, hasAnyRole } = useAuth();
+  const { session } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [initial, setInitial] = useState<FarmerFormState | null>(null);
