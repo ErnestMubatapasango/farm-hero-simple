@@ -42,26 +42,30 @@ const mainNav = [
   { title: "Credit Score", url: "/credit-score", icon: Gauge, adminOnly: true },
 ];
 
-const adminNav = [
+type NavItem = { title: string; url: string; icon: typeof Users; ownerOnly?: boolean };
+
+const adminNav: NavItem[] = [
   { title: "Admin", url: "/admin", icon: ShieldCheck },
   { title: "Farmers", url: "/admin/farmers", icon: Sprout },
   { title: "Users", url: "/admin/users", icon: Users },
-  { title: "Roles", url: "/admin/roles", icon: KeyRound },
-  { title: "Invitations", url: "/admin/invitations", icon: Send },
+  { title: "Roles", url: "/admin/roles", icon: KeyRound, ownerOnly: true },
+  { title: "Invitations", url: "/admin/invitations", icon: Send, ownerOnly: true },
 ];
 
 export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
-  const { session, roles, hasAnyRole, organizationId } = useAuth();
+  const { session, roles, organizationId } = useAuth();
   const userId = session?.user?.id;
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const [orgName, setOrgName] = useState<string | null>(null);
   const avatarSrc = useAvatarUrl(profile?.avatar_url);
 
 
-  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+  const isAdmin = isOrgAdmin(roles);
+  const isOwner = isOrgOwner(roles);
+
 
   const handleNavClick = () => {
     if (isMobile) {
