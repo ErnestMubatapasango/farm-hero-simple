@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { isOrgOwner, isPlatformDeveloper } from "@/lib/permissions";
 import { Input } from "@/components/ui/input";
 import { Loader2, Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2, Ban, AlertTriangle, Inbox } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -38,7 +39,7 @@ interface Invitation {
 }
 
 export default function AdminInvitations() {
-  const { organizationId, hasRole, session } = useAuth();
+  const { roles, organizationId, hasRole, session } = useAuth();
   const { toast } = useToast();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [nameMap, setNameMap] = useState<Record<string, string | null>>({});
@@ -57,7 +58,7 @@ export default function AdminInvitations() {
 
   const [filter, setFilter] = useState<FilterKey>("all");
 
-  const isSuperAdmin = hasRole("super_admin") || hasRole("developer");
+  const isSuperAdmin = isOrgOwner(roles);
 
   const loadInvitations = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
@@ -65,7 +66,7 @@ export default function AdminInvitations() {
       .from("invitations")
       .select("id, email, role, status, created_at, accepted_at, invited_user_id, revoked_at, revoked_by, last_error")
       .order("created_at", { ascending: false });
-    if (!hasRole("developer") && organizationId) {
+    if (!isPlatformDeveloper(roles) && organizationId) {
       query = query.eq("organization_id", organizationId);
     }
     const { data } = await query;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { isOrgAdmin } from "@/lib/permissions";
 import { Loader2, BarChart3 } from "lucide-react";
 import {
   Accordion,
@@ -23,8 +24,8 @@ interface FarmerRow {
 }
 
 export default function Analytics() {
-  const { session, hasAnyRole } = useAuth();
-  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+  const { roles, session, hasAnyRole } = useAuth();
+  const isAdmin = isOrgAdmin(roles);
   const [farmers, setFarmers] = useState<FarmerRow[]>([]);
   const [loading, setLoading] = useState(true);
 

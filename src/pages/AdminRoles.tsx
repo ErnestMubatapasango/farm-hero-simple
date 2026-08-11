@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { isPlatformDeveloper } from "@/lib/permissions";
 import { Loader2 } from "lucide-react";
 
 interface RoleRow {
@@ -12,7 +13,7 @@ interface RoleRow {
 }
 
 export default function AdminRoles() {
-  const { organizationId, hasRole } = useAuth();
+  const { roles, organizationId, hasRole } = useAuth();
   const [roleEntries, setRoleEntries] = useState<RoleRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +21,7 @@ export default function AdminRoles() {
     async function load() {
       setLoading(true);
       let query = supabase.from("user_roles").select("id, user_id, role, created_at");
-      if (!hasRole("developer") && organizationId) {
+      if (!isPlatformDeveloper(roles) && organizationId) {
         query = query.eq("organization_id", organizationId);
       }
       const { data } = await query;

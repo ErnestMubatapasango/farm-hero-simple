@@ -22,6 +22,7 @@ import {
 } from "@/lib/farm-health";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { isOrgAdmin } from "@/lib/permissions";
 
 interface Props {
   farmerId: string;
@@ -45,8 +46,8 @@ interface CreditRow {
 
 export default function FarmerAnalyticsCard({ farmerId, farmerName, farmSize, annualIncome }: Props) {
   const { toast } = useToast();
-  const { hasAnyRole } = useAuth();
-  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
+  const { roles, hasAnyRole } = useAuth();
+  const isAdmin = isOrgAdmin(roles);
 
   const [yields, setYields] = useState<YieldRow[]>([]);
   const [health, setHealth] = useState<FarmHealthScore | null>(null);
