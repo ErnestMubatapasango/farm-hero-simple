@@ -21,7 +21,9 @@ Super admins and admins see their own organization's members directly, exactly a
 
 **3. Role badges**
 
-Members render a single role badge (falling back to "No role" when a user has none), instead of a row of badges.
+Members render a single role badge (falling back to "Enumerator" when a user has none), instead of a row of badges.
+
+&nbsp;
 
 ## Technical notes
 
