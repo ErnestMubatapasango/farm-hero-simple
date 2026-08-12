@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { isOrgAdmin } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
+import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 import { Loader2, FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -51,7 +52,8 @@ function requiredSummary(docs: DocSummary[]) {
 
 export default function Documents() {
   const { roles, session, hasAnyRole } = useAuth();
-  const isAdmin = isOrgAdmin(roles);
+  const { can } = usePermissions();
+  const isAdmin = isOrgAdmin(roles) || can(PERMISSIONS.documentsVerify);
   const [farmers, setFarmers] = useState<FarmerRow[]>([]);
   const [docs, setDocs] = useState<DocSummary[]>([]);
   const [loading, setLoading] = useState(true);

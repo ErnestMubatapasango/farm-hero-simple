@@ -1,11 +1,15 @@
 import { Link } from "react-router-dom";
 import { Users, KeyRound, BarChart3, Sprout, Send } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { isOrgOwner } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
+import { isOrgOwner, PERMISSIONS } from "@/lib/permissions";
 
 export default function Admin() {
   const { roles } = useAuth();
+  const { can } = usePermissions();
   const isOwner = isOrgOwner(roles);
+  const canInvite = can(PERMISSIONS.teamInvite);
+  const canManagePerms = can(PERMISSIONS.teamManagePermissions);
 
   const tiles = [
     { title: "Farmers", description: "Review and verify farmer records", icon: Sprout, to: "/admin/farmers" },
@@ -15,10 +19,10 @@ export default function Admin() {
       icon: Users,
       to: "/admin/users",
     },
-    { title: "Invitations", description: "Invite admins and enumerators", icon: Send, to: "/admin/invitations", ownerOnly: true },
-    { title: "Roles", description: "Assign and manage roles", icon: KeyRound, to: "/admin/roles", ownerOnly: true },
+    { title: "Invitations", description: "Invite admins and enumerators", icon: Send, to: "/admin/invitations", hidden: !canInvite },
+    { title: "Roles", description: canManagePerms ? "Configure role permissions" : "View role permissions", icon: KeyRound, to: "/admin/roles" },
     { title: "Overview", description: "Organization analytics", icon: BarChart3, to: "/analytics" },
-  ].filter((t) => !t.ownerOnly || isOwner);
+  ].filter((t) => !t.hidden);
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-4xl mx-auto space-y-6">

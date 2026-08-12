@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
+import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Search, Gauge, RefreshCw, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -44,7 +45,8 @@ export default function CreditScore() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
 
-  const isAdmin = isOrgAdmin(roles);
+  const { can } = usePermissions();
+  const isAdmin = can(PERMISSIONS.creditView) || isOrgAdmin(roles);
   const enumeratorOnly = isFieldAgentOnly(roles);
 
   const load = async () => {

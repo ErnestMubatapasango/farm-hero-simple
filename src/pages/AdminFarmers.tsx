@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
+import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -91,7 +92,8 @@ export default function AdminFarmers() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const isAdmin = isOrgAdmin(roles);
+  const { can } = usePermissions();
+  const isAdmin = isOrgAdmin(roles) || can(PERMISSIONS.farmersVerify);
   const enumeratorOnly = isFieldAgentOnly(roles);
 
   // URL-backed state

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CurrencyProvider } from "@/hooks/useCurrency";
+import { PermissionsProvider } from "@/hooks/usePermissions";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { RoleRoute } from "@/components/RoleRoute";
@@ -42,6 +43,7 @@ const App = () => (
       <InstallPrompt />
       <BrowserRouter>
         <AuthProvider>
+          <PermissionsProvider>
           <CurrencyProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -65,9 +67,9 @@ const App = () => (
                   <Route path="/credit-score/:farmerId" element={<CreditScoreDetail />} />
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/admin/users" element={<AdminUsers />} />
+                  <Route path="/admin/roles" element={<AdminRoles />} />
                 </Route>
                 <Route element={<RoleRoute allow={["super_admin", "developer"]} />}>
-                  <Route path="/admin/roles" element={<AdminRoles />} />
                   <Route path="/admin/invitations" element={<AdminInvitations />} />
                 </Route>
 
@@ -77,6 +79,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           </CurrencyProvider>
+          </PermissionsProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
