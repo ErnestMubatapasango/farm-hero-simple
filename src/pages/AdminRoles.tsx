@@ -12,7 +12,7 @@ import {
 } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { GerminatingLogo } from "@/components/GerminatingLogo";
-import { RotateCcw, ShieldCheck } from "lucide-react";
+import { Loader2, RotateCcw, ShieldCheck } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
