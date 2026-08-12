@@ -247,7 +247,7 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-foreground leading-tight">
           {greeting()}, {firstName || email}
         </h1>
-        <p className="text-muted-foreground mt-1 capitalize">{roleLabel}</p>
+        {/* <p className="text-muted-foreground mt-1 capitalize">{roleLabel}</p> */}
       </div>
 
 
