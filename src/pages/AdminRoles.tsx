@@ -130,7 +130,8 @@ export default function AdminRoles() {
     else setOverrides((prev) => ({ ...prev, [k]: next }));
 
     const { error } = await supabase.rpc("set_role_permission", {
-      _org_id: scopeOrgId,
+      // Null means "platform defaults"; the generated types don't model that.
+      _org_id: scopeOrgId as unknown as string,
       _role: activeRole,
       _permission_key: permKey,
       _enabled: next,
