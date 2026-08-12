@@ -50,6 +50,25 @@ export const canGrantRole = (roles: AppRole[], target: AppRole) => {
 };
 export const canSeeAllOrganizations = (roles: AppRole[]) => isPlatformDeveloper(roles);
 
+/** Selectable roles (single-role model) for a caller editing a given target user. */
+export const ASSIGNABLE_ROLE_ORDER: AppRole[] = ["super_admin", "admin", "enumerator"];
+
+export function assignableRolesFor(callerRoles: AppRole[], targetRoles: AppRole[]): AppRole[] {
+  if (isPlatformDeveloper(callerRoles)) return ASSIGNABLE_ROLE_ORDER;
+  if (!isOrgOwner(callerRoles)) return [];
+  // A super admin cannot change an organization owner's role at all.
+  if (targetRoles.includes("super_admin") || targetRoles.includes("developer")) return [];
+  return ASSIGNABLE_ROLE_ORDER.filter((r) => canGrantRole(callerRoles, r));
+}
+
+/** The single effective org role for a member row. */
+export function primaryRole(roles: AppRole[]): AppRole {
+  if (roles.includes("developer")) return "developer";
+  if (roles.includes("super_admin")) return "super_admin";
+  if (roles.includes("admin")) return "admin";
+  return "enumerator";
+}
+
 export const ROLE_LABELS: Record<AppRole, string> = {
   developer: "Developer",
   super_admin: "Super admin",
