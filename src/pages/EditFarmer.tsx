@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Loader2, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
 import FarmerForm, { FarmerFormState, emptyFarmerForm } from "@/components/onboarding/FarmerForm";
 
 export default function EditFarmer() {
@@ -89,11 +90,7 @@ export default function EditFarmer() {
   }, [farmerId, session?.user?.id]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GerminatingLogo fullScreen={false} message="Loading farmer record..." />;
   }
 
   if (!initial) {

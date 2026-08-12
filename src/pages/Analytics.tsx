@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { isOrgAdmin } from "@/lib/permissions";
-import { Loader2, BarChart3 } from "lucide-react";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { BarChart3 } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -65,7 +66,7 @@ export default function Analytics() {
 
         {loading ? (
           <div className="flex justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <GerminatingLogo fullScreen={false} size="sm" message="Loading analytics..." />
           </div>
         ) : farmers.length === 0 ? (
           <p className="text-sm text-muted-foreground">

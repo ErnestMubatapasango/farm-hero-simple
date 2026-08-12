@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeft, Gauge, RefreshCw, Lightbulb } from "lucide-react";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { ArrowLeft, Gauge, RefreshCw, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loadAndComputeScore } from "@/lib/credit-score-service";
 import type { CreditScoreResult } from "@/lib/credit-score";
@@ -76,11 +77,7 @@ export default function CreditScoreDetail() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GerminatingLogo fullScreen={false} message="Loading credit score..." />;
   }
 
   if (!farmer || !result) {

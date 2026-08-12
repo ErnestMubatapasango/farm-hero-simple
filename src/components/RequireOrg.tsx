@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
 
 /**
  * Guards the app against orphaned accounts: a signed-in user with no
@@ -9,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 export function RequireOrg() {
   const { session, loading, organizationId, roles } = useAuth();
 
-  if (loading) return null;
+  if (loading) return <GerminatingLogo message="Preparing your farm..." />;
   if (!session) return <Navigate to="/login" replace />;
 
   if (!organizationId && roles.length === 0) {

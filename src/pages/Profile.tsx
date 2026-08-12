@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
 import { Loader2, Mail, Calendar, Camera, Phone, Building2, Pencil } from "lucide-react";
 
 interface ProfileRow {
@@ -111,11 +112,7 @@ export default function Profile() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GerminatingLogo fullScreen={false} message="Loading your profile..." />;
   }
 
   const initials = profile?.full_name

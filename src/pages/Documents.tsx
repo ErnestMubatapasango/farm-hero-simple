@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
-import { Loader2, FileText, Search } from "lucide-react";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Accordion,
@@ -129,7 +130,7 @@ export default function Documents() {
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <GerminatingLogo fullScreen={false} size="sm" message="Loading documents..." />
         </div>
       ) : filtered.length === 0 ? (
         <div className="kyf-card-flat p-8 text-center">

@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { relativeTime } from "@/lib/relative-time";
 import { greeting } from "@/lib/greeting";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
 import {
   Sprout,
   ChevronRight,
@@ -225,11 +226,7 @@ export default function Dashboard() {
   }, [session, organizationId, hasRole, isAdmin]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GerminatingLogo fullScreen={false} message="Loading your dashboard..." />;
   }
 
   const email = session?.user?.email || "User";
@@ -255,7 +252,7 @@ export default function Dashboard() {
       {/* Stats cards */}
       {loadingStats ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <GerminatingLogo fullScreen={false} size="sm" message="Loading stats..." />
         </div>
       ) : stats ? (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">

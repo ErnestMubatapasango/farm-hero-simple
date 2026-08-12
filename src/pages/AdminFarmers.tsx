@@ -5,6 +5,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
 import {
   Loader2,
   Search,
@@ -512,7 +513,7 @@ export default function AdminFarmers() {
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <GerminatingLogo fullScreen={false} size="sm" message="Loading farmers..." />
           </div>
         ) : farmers.length === 0 ? (
           <p className="p-6 text-center text-muted-foreground">No farmers found.</p>
