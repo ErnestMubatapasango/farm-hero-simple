@@ -516,6 +516,51 @@ export type Database = {
         }
         Relationships: []
       }
+      org_role_permissions: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          organization_id: string
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled: boolean
+          organization_id: string
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          organization_id?: string
+          permission_key?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_role_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_role_permissions_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string | null
@@ -537,6 +582,33 @@ export type Database = {
           id?: string
           name?: string
           slug?: string | null
+        }
+        Relationships: []
+      }
+      permissions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          key: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          key: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          key?: string
+          label?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -581,6 +653,38 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_permission_defaults: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          permission_key?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permission_defaults_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
           },
         ]
       }
@@ -699,6 +803,10 @@ export type Database = {
       }
       ensure_platform_developer: { Args: { _email?: string }; Returns: string }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
+      has_permission: {
+        Args: { _org_id: string; _perm: string; _user_id: string }
+        Returns: boolean
+      }
       has_role:
         | {
             Args: {
@@ -725,6 +833,19 @@ export type Database = {
           roles: Database["public"]["Enums"]["app_role"][]
           user_id: string
         }[]
+      }
+      my_permissions: {
+        Args: never
+        Returns: {
+          permission_key: string
+        }[]
+      }
+      reset_role_permissions: {
+        Args: {
+          _org_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: undefined
       }
       revoke_invitation: {
         Args: { _invitation_id: string }
@@ -758,6 +879,15 @@ export type Database = {
           _yields: Json
         }
         Returns: string
+      }
+      set_role_permission: {
+        Args: {
+          _enabled: boolean
+          _org_id: string
+          _permission_key: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: undefined
       }
       set_user_roles: {
         Args: {
