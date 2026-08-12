@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useAvatarUrl } from "@/hooks/useAvatarUrl";
 import { isOrgAdmin, isOrgOwner } from "@/lib/permissions";
 
@@ -65,7 +66,8 @@ export function AppSidebar() {
   const avatarSrc = useAvatarUrl(profile?.avatar_url);
 
 
-  const isAdmin = isOrgAdmin(roles);
+  const { can } = usePermissions();
+  const isAdmin = isOrgAdmin(roles) || can(PERMISSIONS.farmersViewAll) || can(PERMISSIONS.analyticsOrg);
   const isOwner = isOrgOwner(roles);
 
 

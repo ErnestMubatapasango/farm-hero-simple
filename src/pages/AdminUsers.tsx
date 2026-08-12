@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, Clock, ShieldCheck, Pencil, Building2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -87,7 +88,8 @@ export default function AdminUsers() {
   const [selectedRole, setSelectedRole] = useState<AppRole | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const canManage = canManageRoles(roles);
+  const { can } = usePermissions();
+  const canManage = canManageRoles(roles) || can(PERMISSIONS.teamManageRoles);
   const activeOrgId = isDeveloper ? selectedOrg?.id ?? null : organizationId;
 
   // Developers browse organizations first.

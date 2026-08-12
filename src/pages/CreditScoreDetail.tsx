@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeft, Gauge, RefreshCw, Lightbulb } from "lucide-react";
@@ -27,7 +28,8 @@ function bandColor(score: number) {
 export default function CreditScoreDetail() {
   const { farmerId } = useParams<{ farmerId: string }>();
   const { roles, hasAnyRole } = useAuth();
-  const isAdmin = isOrgAdmin(roles);
+  const { can } = usePermissions();
+  const isAdmin = can(PERMISSIONS.creditView) || isOrgAdmin(roles);
   const { toast } = useToast();
   const [farmer, setFarmer] = useState<FarmerHead | null>(null);
   const [result, setResult] = useState<CreditScoreResult | null>(null);
