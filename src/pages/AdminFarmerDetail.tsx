@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, isOrgOwner, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
 import {
   Loader2,
   ArrowLeft,
@@ -323,11 +324,7 @@ export default function AdminFarmerDetail() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GerminatingLogo fullScreen={false} message="Loading farmer record..." />;
   }
 
   if (!farmer) {
