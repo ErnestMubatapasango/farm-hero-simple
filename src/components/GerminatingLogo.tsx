@@ -55,5 +55,5 @@ export function GerminatingLogo({
     );
   }
 
-  return <div className="p-8 flex items-center justify-center">{content}</div>;
+  return <>{content}</>;
 }
