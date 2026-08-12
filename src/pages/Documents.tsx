@@ -130,7 +130,7 @@ export default function Documents() {
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <GerminatingLogo fullScreen={false} size="sm" message="Loading documents..." />
         </div>
       ) : filtered.length === 0 ? (
         <div className="kyf-card-flat p-8 text-center">

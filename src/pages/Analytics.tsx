@@ -66,7 +66,7 @@ export default function Analytics() {
 
         {loading ? (
           <div className="flex justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <GerminatingLogo fullScreen={false} size="sm" message="Loading analytics..." />
           </div>
         ) : farmers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
