@@ -20,7 +20,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAvatarUrl } from "@/hooks/useAvatarUrl";
-import { isOrgAdmin, isOrgOwner } from "@/lib/permissions";
+import { isOrgAdmin, isOrgOwner, PERMISSIONS } from "@/lib/permissions";
 
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

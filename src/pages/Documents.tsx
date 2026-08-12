@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
-import { isOrgAdmin } from "@/lib/permissions";
+import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 import { Loader2, FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {

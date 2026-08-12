@@ -23,7 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
-import { isOrgAdmin } from "@/lib/permissions";
+import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 
 interface Props {
   farmerId: string;

@@ -28,6 +28,7 @@ import {
   ROLE_DESCRIPTIONS,
   ROLE_LABELS,
   type AppRole,
+  PERMISSIONS,
 } from "@/lib/permissions";
 
 interface MemberRow {

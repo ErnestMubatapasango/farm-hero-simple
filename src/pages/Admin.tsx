@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Users, KeyRound, BarChart3, Sprout, Send } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
-import { isOrgOwner } from "@/lib/permissions";
+import { isOrgOwner, PERMISSIONS } from "@/lib/permissions";
 
 export default function Admin() {
   const { roles } = useAuth();

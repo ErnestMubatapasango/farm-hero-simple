@@ -3,7 +3,7 @@ import { useParams, Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
-import { isOrgAdmin } from "@/lib/permissions";
+import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeft, Gauge, RefreshCw, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";

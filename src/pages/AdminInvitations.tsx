@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
-import { isOrgOwner, isPlatformDeveloper } from "@/lib/permissions";
+import { isOrgOwner, isPlatformDeveloper, PERMISSIONS } from "@/lib/permissions";
 import { Input } from "@/components/ui/input";
 import { Loader2, Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2, Ban, AlertTriangle, Inbox } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
