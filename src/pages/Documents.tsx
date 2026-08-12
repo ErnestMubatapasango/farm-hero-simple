@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
-import { Loader2, FileText, Search } from "lucide-react";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Accordion,
