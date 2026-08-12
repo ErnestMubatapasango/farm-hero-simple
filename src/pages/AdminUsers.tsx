@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Clock, ShieldCheck, Pencil } from "lucide-react";
+import { Loader2, Mail, Clock, ShieldCheck, Pencil, Building2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,16 +11,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-
-type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
-
-const ASSIGNABLE_ROLES: { key: AppRole; label: string; description: string }[] = [
-  { key: "super_admin", label: "Super Admin", description: "Full org control, can manage users & roles." },
-  { key: "admin", label: "Admin", description: "Verify farmers, view all data." },
-  { key: "enumerator", label: "Enumerator", description: "Enroll farmers and edit their own drafts." },
-];
+import {
+  assignableRolesFor,
+  canManageRoles,
+  canSeeAllOrganizations,
+  primaryRole,
+  ROLE_DESCRIPTIONS,
+  ROLE_LABELS,
+  type AppRole,
+} from "@/lib/permissions";
 
 interface MemberRow {
   user_id: string;
@@ -29,6 +36,13 @@ interface MemberRow {
   created_at: string | null;
   last_sign_in_at: string | null;
   roles: AppRole[];
+}
+
+interface OrgRow {
+  id: string;
+  name: string;
+  slug: string | null;
+  memberCount: number;
 }
 
 function relativeTime(iso: string | null): string {
@@ -54,72 +68,106 @@ function RoleBadge({ role }: { role: AppRole }) {
     enumerator: "bg-muted text-foreground border-border",
   };
   return (
-    <span
-      className={`text-[10px] font-medium px-2 py-0.5 rounded-full border capitalize ${styles[role]}`}
-    >
-      {role.replace("_", " ")}
+    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${styles[role]}`}>
+      {ROLE_LABELS[role]}
     </span>
   );
 }
 
 export default function AdminUsers() {
-  const { organizationId, hasAnyRole, session } = useAuth();
+  const { organizationId, roles, session } = useAuth();
   const { toast } = useToast();
+  const isDeveloper = canSeeAllOrganizations(roles);
+
+  const [orgs, setOrgs] = useState<OrgRow[]>([]);
+  const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string } | null>(null);
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<MemberRow | null>(null);
-  const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
+  const [selectedRole, setSelectedRole] = useState<AppRole | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const canManage = hasAnyRole(["super_admin", "developer"]);
+  const canManage = canManageRoles(roles);
+  const activeOrgId = isDeveloper ? selectedOrg?.id ?? null : organizationId;
 
-  const load = useCallback(async () => {
-    if (!organizationId) return;
+  // Developers browse organizations first.
+  const loadOrgs = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("list_org_members", {
-      _org_id: organizationId,
-    });
-    if (error) {
-      toast({ title: "Failed to load users", description: error.message, variant: "destructive" });
-      setMembers([]);
+    const [orgRes, profileRes] = await Promise.all([
+      supabase.from("organizations").select("id, name, slug").order("name"),
+      supabase.from("profiles").select("organization_id"),
+    ]);
+    if (orgRes.error) {
+      toast({
+        title: "Failed to load organizations",
+        description: orgRes.error.message,
+        variant: "destructive",
+      });
+      setOrgs([]);
     } else {
-      setMembers((data as MemberRow[]) || []);
+      const counts = new Map<string, number>();
+      for (const p of profileRes.data || []) {
+        if (p.organization_id) counts.set(p.organization_id, (counts.get(p.organization_id) || 0) + 1);
+      }
+      setOrgs(
+        (orgRes.data || []).map((o) => ({
+          id: o.id,
+          name: o.name,
+          slug: o.slug,
+          memberCount: counts.get(o.id) || 0,
+        }))
+      );
     }
     setLoading(false);
-  }, [organizationId, toast]);
+  }, [toast]);
+
+  const loadMembers = useCallback(
+    async (orgId: string) => {
+      setLoading(true);
+      const { data, error } = await supabase.rpc("list_org_members", { _org_id: orgId });
+      if (error) {
+        toast({ title: "Failed to load users", description: error.message, variant: "destructive" });
+        setMembers([]);
+      } else {
+        setMembers((data as MemberRow[]) || []);
+      }
+      setLoading(false);
+    },
+    [toast]
+  );
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (isDeveloper && !selectedOrg) {
+      loadOrgs();
+      return;
+    }
+    if (activeOrgId) loadMembers(activeOrgId);
+  }, [isDeveloper, selectedOrg, activeOrgId, loadOrgs, loadMembers]);
 
   const openEdit = (m: MemberRow) => {
     setEditing(m);
-    setSelectedRoles(m.roles.filter((r) => r !== "developer"));
+    setSelectedRole(primaryRole(m.roles));
   };
 
-  const toggleRole = (role: AppRole) => {
-    setSelectedRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
-    );
-  };
-
-  const saveRoles = async () => {
-    if (!editing || !organizationId) return;
+  const saveRole = async () => {
+    if (!editing || !activeOrgId || !selectedRole) return;
     setSaving(true);
     const { error } = await supabase.rpc("set_user_roles", {
       _user_id: editing.user_id,
-      _org_id: organizationId,
-      _roles: selectedRoles,
+      _org_id: activeOrgId,
+      _roles: [selectedRole],
     });
     if (error) {
-      toast({ title: "Failed to update roles", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to update role", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Roles updated" });
+      toast({ title: "Role updated" });
       setEditing(null);
-      await load();
+      await loadMembers(activeOrgId);
     }
     setSaving(false);
   };
+
+  const editableRoles = editing ? assignableRolesFor(roles, editing.roles) : [];
 
   if (loading) {
     return (
@@ -129,12 +177,67 @@ export default function AdminUsers() {
     );
   }
 
+  // Developer: organization picker
+  if (isDeveloper && !selectedOrg) {
+    return (
+      <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Organizations</h1>
+          <p className="text-muted-foreground mt-1">
+            Select an organization to view its users and their roles.
+          </p>
+        </div>
+
+        <div className="kyf-card-flat divide-y divide-border">
+          {orgs.length === 0 ? (
+            <p className="p-6 text-center text-muted-foreground">No organizations found.</p>
+          ) : (
+            orgs.map((o) => (
+              <button
+                key={o.id}
+                onClick={() => setSelectedOrg({ id: o.id, name: o.name })}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/50 transition-colors"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Building2 className="h-4 w-4 text-primary" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-foreground truncate">{o.name}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {o.slug ? `${o.slug} · ` : ""}
+                    {o.memberCount} user{o.memberCount === 1 ? "" : "s"}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Users</h1>
+        {isDeveloper && (
+          <button
+            onClick={() => {
+              setSelectedOrg(null);
+              setMembers([]);
+            }}
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-2"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> All organizations
+          </button>
+        )}
+        <h1 className="text-2xl font-bold text-foreground">
+          {isDeveloper && selectedOrg ? selectedOrg.name : "Users"}
+        </h1>
         <p className="text-muted-foreground mt-1">
-          {members.length} user{members.length === 1 ? "" : "s"} in your organization.
+          {members.length} user{members.length === 1 ? "" : "s"}
+          {isDeveloper && selectedOrg ? " in this organization." : " in your organization."}
+          {!canManage && " Role changes are limited to super admins."}
         </p>
       </div>
 
@@ -144,6 +247,8 @@ export default function AdminUsers() {
         ) : (
           members.map((m) => {
             const isSelf = m.user_id === session?.user?.id;
+            const role = primaryRole(m.roles);
+            const canEditThis = canManage && assignableRolesFor(roles, m.roles).length > 0;
             return (
               <div
                 key={m.user_id}
@@ -176,20 +281,16 @@ export default function AdminUsers() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
-                  {m.roles.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic">No roles</span>
-                  ) : (
-                    m.roles.map((r) => <RoleBadge key={r} role={r} />)
-                  )}
+                  <RoleBadge role={role} />
                 </div>
 
-                {canManage && (
+                {canEditThis && (
                   <button
                     onClick={() => openEdit(m)}
                     className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
                   >
                     <Pencil className="h-3.5 w-3.5" />
-                    Edit roles
+                    Edit role
                   </button>
                 )}
               </div>
@@ -198,41 +299,47 @@ export default function AdminUsers() {
         )}
       </div>
 
-      {/* Edit-roles dialog */}
+      {/* Edit-role dialog */}
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              Edit roles
+              Edit role
             </DialogTitle>
             <DialogDescription>
-              {editing?.full_name || editing?.email || "User"} — select which roles this user
-              should have in your organization.
+              {editing?.full_name || editing?.email || "User"} — a user holds exactly one role in an
+              organization.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-2">
-            {ASSIGNABLE_ROLES.map((r) => (
-              <label
-                key={r.key}
-                className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-              >
-                <Checkbox
-                  checked={selectedRoles.includes(r.key)}
-                  onCheckedChange={() => toggleRole(r.key)}
-                  className="mt-0.5"
-                />
-                <div className="flex-1">
-                  <Label className="text-sm font-medium cursor-pointer">{r.label}</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">{r.description}</p>
-                </div>
-              </label>
-            ))}
-            {editing?.roles.includes("developer") && (
-              <p className="text-xs text-muted-foreground italic">
-                This user has the developer role — it isn't editable here.
+            {editableRoles.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Only a platform developer can change this user's role.
               </p>
+            ) : (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Role</Label>
+                <Select
+                  value={selectedRole ?? undefined}
+                  onValueChange={(v) => setSelectedRole(v as AppRole)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editableRoles.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {ROLE_LABELS[r]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedRole && (
+                  <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[selectedRole]}</p>
+                )}
+              </div>
             )}
           </div>
 
@@ -245,11 +352,11 @@ export default function AdminUsers() {
               Cancel
             </button>
             <button
-              onClick={saveRoles}
-              disabled={saving}
+              onClick={saveRole}
+              disabled={saving || editableRoles.length === 0 || !selectedRole}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-colors"
             >
-              {saving ? "Saving…" : "Save roles"}
+              {saving ? "Saving…" : "Save role"}
             </button>
           </DialogFooter>
         </DialogContent>

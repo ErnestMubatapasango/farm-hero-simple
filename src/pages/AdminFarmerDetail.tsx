@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { isOrgAdmin, isOrgOwner } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2,
@@ -136,7 +137,7 @@ function formatNumber(value: number | null | undefined, suffix?: string) {
 export default function AdminFarmerDetail() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const { session, hasAnyRole, hasRole } = useAuth();
+  const { roles, session, hasAnyRole, hasRole } = useAuth();
   const { toast } = useToast();
   const [farmer, setFarmer] = useState<FarmerDetail | null>(null);
   const [crops, setCrops] = useState<FarmerCrop[]>([]);
@@ -150,8 +151,8 @@ export default function AdminFarmerDetail() {
   const [rejectReason, setRejectReason] = useState("");
   const [reopenOpen, setReopenOpen] = useState(false);
 
-  const isAdmin = hasAnyRole(["admin", "super_admin", "developer"]);
-  const isSuperAdmin = hasAnyRole(["super_admin", "developer"]);
+  const isAdmin = isOrgAdmin(roles);
+  const isSuperAdmin = isOrgOwner(roles);
   const isOwner = !!session?.user?.id && farmer?.enrolled_by === session.user.id;
   const editableStatus = farmer?.status === "draft" || farmer?.status === "rejected";
   const canEdit = isAdmin || (hasRole("enumerator") && isOwner && editableStatus);
