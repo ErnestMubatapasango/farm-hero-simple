@@ -252,7 +252,7 @@ export default function Dashboard() {
       {/* Stats cards */}
       {loadingStats ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <GerminatingLogo fullScreen={false} size="sm" message="Loading stats..." />
         </div>
       ) : stats ? (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Users, Ruler, TrendingUp, ShieldCheck } from "lucide-react";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { Users, Ruler, TrendingUp, ShieldCheck } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -126,7 +127,7 @@ export default function OrgAnalyticsDashboard() {
   if (loading) {
     return (
       <div className="kyf-card p-6 flex justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <GerminatingLogo fullScreen={false} size="sm" message="Loading analytics..." />
       </div>
     );
   }
