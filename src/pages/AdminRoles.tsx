@@ -11,7 +11,8 @@ import {
   type AppRole,
 } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, RotateCcw, ShieldCheck } from "lucide-react";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { RotateCcw, ShieldCheck } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -170,11 +171,7 @@ export default function AdminRoles() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GerminatingLogo fullScreen={false} message="Loading permissions..." />;
   }
 
   const hasOverrides = Object.keys(overrides).some((k) => k.startsWith(`${activeRole}:`));
