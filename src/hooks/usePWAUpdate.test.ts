@@ -31,25 +31,22 @@ const createMockWorker = (): ServiceWorker => {
 };
 
 describe("usePWAUpdate", () => {
-  const originalReload = window.location.reload;
-  const controllerAddEventListener = vi.fn();
-
   beforeEach(() => {
-    vi.useFakeTimers();
     vi.stubGlobal("navigator", {
       serviceWorker: {
-        addEventListener: controllerAddEventListener,
+        addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
       },
     });
-    vi.stubGlobal("window.location", { ...window.location, reload: vi.fn() });
+    vi.stubGlobal("window.location", {
+      ...window.location,
+      reload: vi.fn(),
+    });
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.unstubAllGlobals();
     mockGetSWRegistration.mockReset();
-    window.location.reload = originalReload;
   });
 
   it("returns needUpdate=true when a waiting service worker exists", async () => {
@@ -62,7 +59,7 @@ describe("usePWAUpdate", () => {
     await waitFor(() => expect(result.current.needUpdate).toBe(true));
   });
 
-  it("sends SKIP_WAITING and reloads when update is triggered", async () => {
+  it("sends SKIP_WAITING and reloads via controllerchange", async () => {
     const waiting = createMockWorker();
     const reg = createMockRegistration(waiting);
     mockGetSWRegistration.mockReturnValue(reg);
@@ -73,14 +70,32 @@ describe("usePWAUpdate", () => {
     result.current.update();
 
     expect(waiting.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" });
-    expect(controllerAddEventListener).toHaveBeenCalledWith(
-      "controllerchange",
-      expect.any(Function),
-    );
 
-    // Fallback reload should fire after 3 seconds.
-    vi.advanceTimersByTime(3000);
+    const addEventListener = navigator.serviceWorker.addEventListener as ReturnType<typeof vi.fn>;
+    const controllerChangeHandler = addEventListener.mock.calls.find(
+      (call) => call[0] === "controllerchange",
+    )?.[1] as (() => void) | undefined;
+
+    expect(controllerChangeHandler).toBeDefined();
+    controllerChangeHandler!();
+
     expect(window.location.reload).toHaveBeenCalled();
+  });
+
+  it("falls back to reload after 3 seconds if controllerchange never fires", async () => {
+    vi.useFakeTimers();
+    const waiting = createMockWorker();
+    const reg = createMockRegistration(waiting);
+    mockGetSWRegistration.mockReturnValue(reg);
+
+    const { result } = renderHook(() => usePWAUpdate());
+    await waitFor(() => expect(result.current.needUpdate).toBe(true));
+
+    result.current.update();
+    vi.advanceTimersByTime(3000);
+
+    expect(window.location.reload).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it("does not signal an update when no service worker is registered", async () => {
