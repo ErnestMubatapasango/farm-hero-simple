@@ -31,20 +31,29 @@ const createMockWorker = (): ServiceWorker => {
 };
 
 describe("usePWAUpdate", () => {
-  let reloadSpy: ReturnType<typeof vi.spyOn>;
+  const originalLocation = window.location;
+  let reloadMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    reloadMock = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, reload: reloadMock },
+    });
+
     vi.stubGlobal("navigator", {
       serviceWorker: {
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
       },
     });
-    reloadSpy = vi.spyOn(window.location, "reload").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    reloadSpy.mockRestore();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: originalLocation,
+    });
     vi.unstubAllGlobals();
     mockGetSWRegistration.mockReset();
   });
@@ -79,7 +88,7 @@ describe("usePWAUpdate", () => {
     expect(controllerChangeHandler).toBeDefined();
     controllerChangeHandler!();
 
-    expect(window.location.reload).toHaveBeenCalled();
+    expect(reloadMock).toHaveBeenCalled();
   });
 
   it("falls back to reload after 3 seconds if controllerchange never fires", async () => {
@@ -94,7 +103,7 @@ describe("usePWAUpdate", () => {
     result.current.update();
     vi.advanceTimersByTime(3000);
 
-    expect(window.location.reload).toHaveBeenCalled();
+    expect(reloadMock).toHaveBeenCalled();
     vi.useRealTimers();
   });
 
