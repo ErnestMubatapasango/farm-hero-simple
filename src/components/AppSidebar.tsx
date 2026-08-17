@@ -200,6 +200,11 @@ export function AppSidebar() {
           <LogOut className="h-4.5 w-4.5 shrink-0" />
           {!collapsed && <span>Logout</span>}
         </button>
+        {!collapsed && (
+          <p className="px-3 pt-1 text-center text-[10px] text-muted-foreground/60">
+            Version {APP_VERSION_LABEL}
+          </p>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
