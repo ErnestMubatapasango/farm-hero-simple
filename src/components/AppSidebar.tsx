@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAvatarUrl } from "@/hooks/useAvatarUrl";
 import { isOrgAdmin, isOrgOwner, PERMISSIONS } from "@/lib/permissions";
+import { APP_VERSION_LABEL } from "@/lib/version";
 
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
