@@ -31,6 +31,8 @@ const createMockWorker = (): ServiceWorker => {
 };
 
 describe("usePWAUpdate", () => {
+  let reloadSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     vi.stubGlobal("navigator", {
       serviceWorker: {
@@ -38,13 +40,11 @@ describe("usePWAUpdate", () => {
         removeEventListener: vi.fn(),
       },
     });
-    vi.stubGlobal("window.location", {
-      ...window.location,
-      reload: vi.fn(),
-    });
+    reloadSpy = vi.spyOn(window.location, "reload").mockImplementation(() => {});
   });
 
   afterEach(() => {
+    reloadSpy.mockRestore();
     vi.unstubAllGlobals();
     mockGetSWRegistration.mockReset();
   });
@@ -83,7 +83,6 @@ describe("usePWAUpdate", () => {
   });
 
   it("falls back to reload after 3 seconds if controllerchange never fires", async () => {
-    vi.useFakeTimers();
     const waiting = createMockWorker();
     const reg = createMockRegistration(waiting);
     mockGetSWRegistration.mockReturnValue(reg);
@@ -91,6 +90,7 @@ describe("usePWAUpdate", () => {
     const { result } = renderHook(() => usePWAUpdate());
     await waitFor(() => expect(result.current.needUpdate).toBe(true));
 
+    vi.useFakeTimers();
     result.current.update();
     vi.advanceTimersByTime(3000);
 
@@ -98,7 +98,7 @@ describe("usePWAUpdate", () => {
     vi.useRealTimers();
   });
 
-  it("does not signal an update when no service worker is registered", async () => {
+  it("does not signal an update when no service worker is registered", () => {
     mockGetSWRegistration.mockReturnValue(undefined);
 
     const { result } = renderHook(() => usePWAUpdate());
