@@ -1,6 +1,9 @@
 // Guarded service worker registration. Only registers in the published app,
 // never in dev/preview/iframes, and supports ?sw=off to disable.
 
+let swRegistration: ServiceWorkerRegistration | undefined;
+let resumeListenerAdded = false;
+
 function shouldRegister(): boolean {
   if (typeof window === "undefined") return false;
   if (!("serviceWorker" in navigator)) return false;
@@ -37,14 +40,30 @@ async function unregisterMatching() {
   }
 }
 
-export async function registerSW() {
+export function getSWRegistration(): ServiceWorkerRegistration | undefined {
+  return swRegistration;
+}
+
+export async function registerSW(): Promise<ServiceWorkerRegistration | undefined> {
   if (!shouldRegister()) {
     await unregisterMatching();
     return;
   }
   try {
-    await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    swRegistration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+
+    // Mobile browsers often only check for a new SW on startup. Poll on resume
+    // so users see an update prompt soon after a deploy.
+    if (!resumeListenerAdded) {
+      resumeListenerAdded = true;
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible" && swRegistration) {
+          void swRegistration.update();
+        }
+      });
+    }
   } catch (err) {
     console.warn("[pwa] SW registration failed", err);
   }
+  return swRegistration;
 }

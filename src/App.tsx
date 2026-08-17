@@ -12,6 +12,7 @@ import { RoleRoute } from "@/components/RoleRoute";
 import { RequireOrg } from "@/components/RequireOrg";
 import { AppLayout } from "@/components/AppLayout";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 import Dashboard from "./pages/Dashboard";
 import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
@@ -41,6 +42,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <InstallPrompt />
+      <UpdatePrompt />
       <BrowserRouter>
         <AuthProvider>
           <PermissionsProvider>

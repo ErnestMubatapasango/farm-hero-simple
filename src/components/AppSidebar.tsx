@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAvatarUrl } from "@/hooks/useAvatarUrl";
 import { isOrgAdmin, isOrgOwner, PERMISSIONS } from "@/lib/permissions";
+import { APP_VERSION_LABEL } from "@/lib/version";
 
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -199,6 +200,11 @@ export function AppSidebar() {
           <LogOut className="h-4.5 w-4.5 shrink-0" />
           {!collapsed && <span>Logout</span>}
         </button>
+        {!collapsed && (
+          <p className="px-3 pt-1 text-center text-[10px] text-muted-foreground/60">
+            Version {APP_VERSION_LABEL}
+          </p>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
