@@ -13,15 +13,16 @@ interface RoleRouteProps {
  * Use for pages tighter than the generic AdminRoute (e.g. super_admin-only).
  */
 export function RoleRoute({ allow, redirectTo = "/" }: RoleRouteProps) {
-  const { hasAnyRole, loading } = useAuth();
+  const { hasAnyRole, loading, profileLoading } = useAuth();
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
+
 
   if (!hasAnyRole(allow)) {
     return <Navigate to={redirectTo} replace />;
