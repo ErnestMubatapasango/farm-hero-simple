@@ -4,11 +4,12 @@ import { isOrgAdmin } from "@/lib/permissions";
 import { GerminatingLogo } from "@/components/GerminatingLogo";
 
 export function AdminRoute() {
-  const { roles, loading } = useAuth();
+  const { roles, loading, profileLoading } = useAuth();
 
-  if (loading) {
+  if (loading || profileLoading) {
     return <GerminatingLogo message="Checking permissions..." />;
   }
+
 
   if (!isOrgAdmin(roles)) {
     return <Navigate to="/" replace />;

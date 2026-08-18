@@ -50,7 +50,7 @@ interface LeaderRow {
 }
 
 export default function Dashboard() {
-  const { session, roles, loading, organizationId, hasAnyRole, hasRole } = useAuth();
+  const { session, roles, loading, profileLoading, organizationId, hasAnyRole, hasRole } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
@@ -225,7 +225,7 @@ export default function Dashboard() {
     loadStats();
   }, [session, organizationId, hasRole, isAdmin]);
 
-  if (loading) {
+  if (loading || profileLoading) {
     return <GerminatingLogo fullScreen={false} message="Loading your dashboard..." />;
   }
 
