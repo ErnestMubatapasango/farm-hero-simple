@@ -26,15 +26,22 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase.rpc("my_permissions");
-    if (error) {
-      console.error("Failed to load permissions:", error.message);
+    try {
+      const { data, error } = await supabase.rpc("my_permissions");
+      if (error) {
+        console.error("Failed to load permissions:", error.message);
+        setPermissions(new Set());
+      } else {
+        setPermissions(new Set((data || []).map((r) => r.permission_key)));
+      }
+    } catch (err) {
+      console.error("Failed to load permissions:", err);
       setPermissions(new Set());
-    } else {
-      setPermissions(new Set((data || []).map((r) => r.permission_key)));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [userId]);
+
 
   // Reload whenever the identity, roles or organization changes.
   useEffect(() => {
