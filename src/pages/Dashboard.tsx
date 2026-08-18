@@ -225,7 +225,7 @@ export default function Dashboard() {
     loadStats();
   }, [session, organizationId, hasRole, isAdmin]);
 
-  if (loading) {
+  if (loading || profileLoading) {
     return <GerminatingLogo fullScreen={false} message="Loading your dashboard..." />;
   }
 
