@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { syncManager } from "@/lib/offline/syncManager";
@@ -11,17 +11,26 @@ import {
   writeLastActivity,
 } from "@/lib/idle";
 
-
 type AppRole = "developer" | "super_admin" | "admin" | "enumerator";
+
+/** Hard cap on the boot loader: never block the UI longer than this. */
+const BOOT_TIMEOUT_MS = 8000;
 
 interface AuthContextType {
   session: Session | null;
+  /** True only until the session itself is known. */
   loading: boolean;
+  /** True while roles/organization are being resolved for the current user. */
+  profileLoading: boolean;
+  /** Set when roles/organization could not be loaded. */
+  error: string | null;
   roles: AppRole[];
   organizationId: string | null;
   hasRole: (role: AppRole) => boolean;
   hasAnyRole: (roles: AppRole[]) => boolean;
   refreshRoles: () => Promise<void>;
+  /** Retry a failed roles/organization load. */
+  retry: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -29,28 +38,27 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  const resolvedForRef = useRef<string | null>(null);
 
   const fetchRolesAndOrg = useCallback(async (userId: string) => {
     const [rolesRes, profileRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle(),
     ]);
-    setRoles((rolesRes.data || []).map((r) => r.role));
+    if (rolesRes.error) throw new Error(rolesRes.error.message);
+    if (profileRes.error) throw new Error(profileRes.error.message);
+    if (!mountedRef.current) return;
+    setRoles((rolesRes.data || []).map((r) => r.role as AppRole));
     setOrganizationId(profileRes.data?.organization_id || null);
   }, []);
 
-  const refreshRoles = useCallback(async () => {
-    if (session?.user?.id) {
-      await fetchRolesAndOrg(session.user.id);
-    }
-  }, [session, fetchRolesAndOrg]);
-
   // A user is treated as revoked only if they have a historical revoked
-  // invitation AND currently hold no active roles. This lets re-invited users
-  // regain access (their roles are re-inserted on acceptance) and avoids
-  // signing out brand-new sign-ups mid-onboarding.
+  // invitation AND currently hold no active roles.
   const checkRevoked = useCallback(async (userId: string) => {
     const [rolesRes, revokedRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId).limit(1),
@@ -70,69 +78,146 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
+  const expiredByInactivity = useCallback(async (uid: string) => {
+    const last = readLastActivity(uid);
+    if (last === null) {
+      writeLastActivity(uid);
+      return false;
+    }
+    if (Date.now() - last < IDLE_TIMEOUT_MS) return false;
+    markIdleLogout();
+    clearLastActivity(uid);
+    await supabase.auth.signOut();
+    return true;
+  }, []);
 
-    // Enforce the inactivity window on app start: if the stored last-activity
-    // timestamp is older than the limit, drop the restored session.
-    const expiredByInactivity = async (uid: string) => {
-      const last = readLastActivity(uid);
-      if (last === null) {
-        writeLastActivity(uid);
-        return false;
+  /**
+   * Resolves roles/organization for a user. Always runs OUTSIDE the Supabase
+   * auth callback so it can never deadlock on the client's auth lock, and
+   * always clears its loading flag in `finally` so the UI can render.
+   */
+  const resolveProfile = useCallback(
+    async (uid: string) => {
+      setProfileLoading(true);
+      setError(null);
+      try {
+        if (await expiredByInactivity(uid)) return;
+        if (await checkRevoked(uid)) return;
+        await fetchRolesAndOrg(uid);
+      } catch (err) {
+        console.error("[auth] Failed to resolve roles/organization:", err);
+        if (mountedRef.current) {
+          setError(err instanceof Error ? err.message : "Could not load your account.");
+        }
+      } finally {
+        if (mountedRef.current) setProfileLoading(false);
       }
-      if (Date.now() - last < IDLE_TIMEOUT_MS) return false;
-      markIdleLogout();
-      clearLastActivity(uid);
-      await supabase.auth.signOut();
-      return true;
-    };
 
-    const finalizeSession = async (uid: string) => {
-      if (await expiredByInactivity(uid)) return;
-      const revoked = await checkRevoked(uid);
-      if (revoked) return;
+      // Non-blocking fallback: complete a stashed create-org intent after the
+      // UI has already rendered.
+      void (async () => {
+        try {
+          const result = await completePendingOrg(uid);
+          if (result.created) await fetchRolesAndOrg(uid);
+          else if (result.error) console.error("Pending org completion failed:", result.error);
+        } catch (err) {
+          console.error("Pending org completion failed:", err);
+        }
+      })();
+    },
+    [expiredByInactivity, checkRevoked, fetchRolesAndOrg]
+  );
+
+  const refreshRoles = useCallback(async () => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    try {
       await fetchRolesAndOrg(uid);
-      // Fallback: if a create-org intent was stashed at signup and the
-      // server-side trigger didn't create the org, complete it now.
-      const result = await completePendingOrg(uid);
-      if (result.created) await fetchRolesAndOrg(uid);
-      else if (result.error) console.error("Pending org completion failed:", result.error);
-    };
+      setError(null);
+    } catch (err) {
+      console.error("[auth] refreshRoles failed:", err);
+    }
+  }, [session, fetchRolesAndOrg]);
 
-    const setSessionAndResolve = async (nextSession: Session | null) => {
-      if (!isMounted) return;
+  const retry = useCallback(() => {
+    const uid = session?.user?.id;
+    if (uid) void resolveProfile(uid);
+  }, [session, resolveProfile]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    // Safety net: never leave the app on the boot loader forever.
+    const bootTimeout = window.setTimeout(() => {
+      if (mountedRef.current) {
+        setLoading(false);
+        setProfileLoading(false);
+      }
+    }, BOOT_TIMEOUT_MS);
+
+    // IMPORTANT: this callback stays synchronous. Awaiting Supabase calls here
+    // holds the client's auth lock and can hang the app on the loader.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!mountedRef.current) return;
       setSession(nextSession);
+      setLoading(false);
 
-      if (nextSession?.user?.id) {
-        await finalizeSession(nextSession.user.id);
-      } else {
+      const uid = nextSession?.user?.id ?? null;
+      if (!uid) {
+        resolvedForRef.current = null;
         setRoles([]);
         setOrganizationId(null);
+        setProfileLoading(false);
+        setError(null);
+        return;
       }
 
-      if (isMounted) {
-        setLoading(false);
+      // Background events (token refresh / tab focus) must not re-block the UI.
+      const isBackgroundEvent = event === "TOKEN_REFRESHED" || event === "USER_UPDATED";
+      if (isBackgroundEvent && resolvedForRef.current === uid) {
+        setTimeout(() => {
+          void fetchRolesAndOrg(uid).catch((err) =>
+            console.error("[auth] background role refresh failed:", err)
+          );
+        }, 0);
+        return;
       }
-    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, nextSession) => {
-        // Keep loading true while we resolve roles/org for the new session.
-        setLoading(true);
-        await setSessionAndResolve(nextSession);
-      }
-    );
-
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
-      await setSessionAndResolve(initialSession);
+      if (resolvedForRef.current === uid) return;
+      resolvedForRef.current = uid;
+      // Defer out of the auth callback.
+      setTimeout(() => void resolveProfile(uid), 0);
     });
 
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: initialSession } }) => {
+        if (!mountedRef.current) return;
+        setSession(initialSession);
+        const uid = initialSession?.user?.id ?? null;
+        if (!uid) {
+          setProfileLoading(false);
+          return;
+        }
+        if (resolvedForRef.current !== uid) {
+          resolvedForRef.current = uid;
+          void resolveProfile(uid);
+        }
+      })
+      .catch((err) => {
+        console.error("[auth] getSession failed:", err);
+        if (mountedRef.current) setProfileLoading(false);
+      })
+      .finally(() => {
+        if (mountedRef.current) setLoading(false);
+      });
+
     return () => {
-      isMounted = false;
+      mountedRef.current = false;
+      window.clearTimeout(bootTimeout);
       subscription.unsubscribe();
     };
-  }, [fetchRolesAndOrg, checkRevoked]);
+  }, [resolveProfile, fetchRolesAndOrg]);
 
   // Start/stop offline sync manager when auth state changes
   useEffect(() => {
@@ -175,7 +260,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasAnyRole = useCallback((r: AppRole[]) => r.some((role) => roles.includes(role)), [roles]);
 
   return (
-    <AuthContext.Provider value={{ session, loading, roles, organizationId, hasRole, hasAnyRole, refreshRoles }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        loading,
+        profileLoading,
+        error,
+        roles,
+        organizationId,
+        hasRole,
+        hasAnyRole,
+        refreshRoles,
+        retry,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
