@@ -50,7 +50,7 @@ interface LeaderRow {
 }
 
 export default function Dashboard() {
-  const { session, roles, loading, organizationId, hasAnyRole, hasRole } = useAuth();
+  const { session, roles, loading, profileLoading, organizationId, hasAnyRole, hasRole } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
