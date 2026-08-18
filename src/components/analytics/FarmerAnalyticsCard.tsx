@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
 import { Loader2, RefreshCw, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +23,8 @@ import {
 } from "@/lib/farm-health";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { isOrgAdmin } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
+import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 
 interface Props {
   farmerId: string;
@@ -47,7 +49,8 @@ interface CreditRow {
 export default function FarmerAnalyticsCard({ farmerId, farmerName, farmSize, annualIncome }: Props) {
   const { toast } = useToast();
   const { roles, hasAnyRole } = useAuth();
-  const isAdmin = isOrgAdmin(roles);
+  const { can } = usePermissions();
+  const isAdmin = can(PERMISSIONS.creditView) || isOrgAdmin(roles);
 
   const [yields, setYields] = useState<YieldRow[]>([]);
   const [health, setHealth] = useState<FarmHealthScore | null>(null);
@@ -117,7 +120,7 @@ export default function FarmerAnalyticsCard({ farmerId, farmerName, farmSize, an
   if (loading) {
     return (
       <div className="kyf-card p-5 flex items-center justify-center min-h-[120px]">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <GerminatingLogo fullScreen={false} size="sm" message="Loading analytics..." />
       </div>
     );
   }

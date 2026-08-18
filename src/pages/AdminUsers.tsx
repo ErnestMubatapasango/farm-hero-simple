@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Clock, ShieldCheck, Pencil, Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { Mail, Clock, ShieldCheck, Pencil, Building2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +29,7 @@ import {
   ROLE_DESCRIPTIONS,
   ROLE_LABELS,
   type AppRole,
+  PERMISSIONS,
 } from "@/lib/permissions";
 
 interface MemberRow {
@@ -87,7 +90,8 @@ export default function AdminUsers() {
   const [selectedRole, setSelectedRole] = useState<AppRole | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const canManage = canManageRoles(roles);
+  const { can } = usePermissions();
+  const canManage = canManageRoles(roles) || can(PERMISSIONS.teamManageRoles);
   const activeOrgId = isDeveloper ? selectedOrg?.id ?? null : organizationId;
 
   // Developers browse organizations first.
@@ -170,11 +174,7 @@ export default function AdminUsers() {
   const editableRoles = editing ? assignableRolesFor(roles, editing.roles) : [];
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GerminatingLogo fullScreen={false} message="Loading team members..." />;
   }
 
   // Developer: organization picker

@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { isOrgOwner, isPlatformDeveloper } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
+import { isOrgOwner, isPlatformDeveloper, PERMISSIONS } from "@/lib/permissions";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2, Ban, AlertTriangle, Inbox } from "lucide-react";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { Send, Clock, CheckCircle, XCircle, RefreshCw, Trash2, Ban, AlertTriangle, Inbox } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { relativeTime, daysSince } from "@/lib/relative-time";
@@ -58,7 +60,8 @@ export default function AdminInvitations() {
 
   const [filter, setFilter] = useState<FilterKey>("all");
 
-  const isSuperAdmin = isOrgOwner(roles);
+  const { can } = usePermissions();
+  const isSuperAdmin = isOrgOwner(roles) || can(PERMISSIONS.teamInvite);
 
   const loadInvitations = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
@@ -221,11 +224,7 @@ export default function AdminInvitations() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GerminatingLogo fullScreen={false} message="Loading invitations..." />;
   }
 
   return (

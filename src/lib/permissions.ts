@@ -83,3 +83,37 @@ export const ROLE_DESCRIPTIONS: Record<AppRole, string> = {
   admin: "Organization operations. Views and verifies every farmer in the org, no people management.",
   enumerator: "Field data capture. Onboards farmers and manages only their own records.",
 };
+
+/* ------------------------------------------------------------------ */
+/* Permission keys (must match public.permissions.key in the database) */
+/* ------------------------------------------------------------------ */
+
+export const PERMISSIONS = {
+  farmersOnboard: "farmers.onboard",
+  farmersViewOwn: "farmers.view_own",
+  farmersViewAll: "farmers.view_all",
+  farmersEditAny: "farmers.edit_any",
+  farmersSubmit: "farmers.submit",
+  farmersVerify: "farmers.verify",
+  farmersReject: "farmers.reject",
+  farmersReopen: "farmers.reopen",
+  farmersExport: "farmers.export",
+  documentsUpload: "documents.upload",
+  documentsView: "documents.view",
+  documentsVerify: "documents.verify",
+  analyticsFarmHealth: "analytics.farm_health",
+  analyticsOrg: "analytics.org",
+  creditView: "credit.view",
+  creditCompute: "credit.compute",
+  teamView: "team.view",
+  teamInvite: "team.invite",
+  teamRevoke: "team.revoke",
+  teamManageRoles: "team.manage_roles",
+  teamManagePermissions: "team.manage_permissions",
+  orgSettings: "org.settings",
+} as const;
+
+export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+
+/** Roles whose permissions can be configured in the UI (developer excluded). */
+export const MANAGEABLE_ROLES: AppRole[] = ["super_admin", "admin", "enumerator"];

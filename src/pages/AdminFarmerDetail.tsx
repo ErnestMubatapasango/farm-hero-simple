@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { isOrgAdmin, isOrgOwner } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
+import { isOrgAdmin, isOrgOwner, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
 import {
   Loader2,
   ArrowLeft,
@@ -151,8 +153,9 @@ export default function AdminFarmerDetail() {
   const [rejectReason, setRejectReason] = useState("");
   const [reopenOpen, setReopenOpen] = useState(false);
 
-  const isAdmin = isOrgAdmin(roles);
-  const isSuperAdmin = isOrgOwner(roles);
+  const { can } = usePermissions();
+  const isAdmin = isOrgAdmin(roles) || can(PERMISSIONS.farmersVerify);
+  const isSuperAdmin = isOrgOwner(roles) || can(PERMISSIONS.farmersReopen);
   const isOwner = !!session?.user?.id && farmer?.enrolled_by === session.user.id;
   const editableStatus = farmer?.status === "draft" || farmer?.status === "rejected";
   const canEdit = isAdmin || (hasRole("enumerator") && isOwner && editableStatus);
@@ -321,11 +324,7 @@ export default function AdminFarmerDetail() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <GerminatingLogo fullScreen={false} message="Loading farmer record..." />;
   }
 
   if (!farmer) {

@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ["manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"],
       devOptions: { enabled: false },
       workbox: {
+        skipWaiting: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
@@ -65,5 +66,8 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(new Date().toISOString()),
   },
 }));

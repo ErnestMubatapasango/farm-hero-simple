@@ -71,6 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     // Enforce the inactivity window on app start: if the stored last-activity
     // timestamp is older than the limit, drop the restored session.
     const expiredByInactivity = async (uid: string) => {
@@ -98,31 +100,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       else if (result.error) console.error("Pending org completion failed:", result.error);
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        if (session?.user?.id) {
-          const uid = session.user.id;
-          setTimeout(() => { finalizeSession(uid); }, 0);
-        } else {
+    const setSessionAndResolve = async (nextSession: Session | null) => {
+      if (!isMounted) return;
+      setSession(nextSession);
 
-          setRoles([]);
-          setOrganizationId(null);
-        }
+      if (nextSession?.user?.id) {
+        await finalizeSession(nextSession.user.id);
+      } else {
+        setRoles([]);
+        setOrganizationId(null);
+      }
+
+      if (isMounted) {
         setLoading(false);
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, nextSession) => {
+        // Keep loading true while we resolve roles/org for the new session.
+        setLoading(true);
+        await setSessionAndResolve(nextSession);
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user?.id) {
-        await finalizeSession(session.user.id);
-      }
-      setLoading(false);
+    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
+      await setSessionAndResolve(initialSession);
     });
 
-
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchRolesAndOrg, checkRevoked]);
 
   // Start/stop offline sync manager when auth state changes

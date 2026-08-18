@@ -8,7 +8,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, FileText, CheckCircle, XCircle, Clock } from "lucide-react";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { Download, FileText, CheckCircle, XCircle, Clock } from "lucide-react";
 
 interface PreviewDoc {
   id: string;
@@ -143,7 +144,7 @@ export default function DocumentPreviewDialog({ doc, open, onOpenChange }: Props
         </DialogHeader>
 
         <div className="h-[75vh] bg-muted/30 flex items-center justify-center overflow-auto">
-          {loading && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+          {loading && <GerminatingLogo fullScreen={false} size="sm" message="Loading preview..." />}
           {!loading && error && (
             <p className="text-sm text-destructive p-6">{error}</p>
           )}

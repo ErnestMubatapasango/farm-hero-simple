@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { isOrgAdmin } from "@/lib/permissions";
-import { Loader2, FileText, Search } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
+import { GerminatingLogo } from "@/components/GerminatingLogo";
+import { FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Accordion,
@@ -51,7 +53,8 @@ function requiredSummary(docs: DocSummary[]) {
 
 export default function Documents() {
   const { roles, session, hasAnyRole } = useAuth();
-  const isAdmin = isOrgAdmin(roles);
+  const { can } = usePermissions();
+  const isAdmin = isOrgAdmin(roles) || can(PERMISSIONS.documentsVerify);
   const [farmers, setFarmers] = useState<FarmerRow[]>([]);
   const [docs, setDocs] = useState<DocSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,7 +130,7 @@ export default function Documents() {
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <GerminatingLogo fullScreen={false} size="sm" message="Loading documents..." />
         </div>
       ) : filtered.length === 0 ? (
         <div className="kyf-card-flat p-8 text-center">
