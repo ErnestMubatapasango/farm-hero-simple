@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CurrencyProvider } from "@/hooks/useCurrency";
+import { ActiveOrgProvider } from "@/hooks/useActiveOrg";
 import { PermissionsProvider } from "@/hooks/usePermissions";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
@@ -45,6 +46,7 @@ const App = () => (
       <UpdatePrompt />
       <BrowserRouter>
         <AuthProvider>
+          <ActiveOrgProvider>
           <PermissionsProvider>
           <CurrencyProvider>
           <Routes>
@@ -82,6 +84,7 @@ const App = () => (
           </Routes>
           </CurrencyProvider>
           </PermissionsProvider>
+          </ActiveOrgProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

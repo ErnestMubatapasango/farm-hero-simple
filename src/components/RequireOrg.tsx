@@ -2,6 +2,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { GerminatingLogo } from "@/components/GerminatingLogo";
 import { Button } from "@/components/ui/button";
+import { isPlatformDeveloper } from "@/lib/permissions";
 
 /**
  * Guards the app against orphaned accounts: a signed-in user with no
@@ -26,7 +27,8 @@ export function RequireOrg() {
     );
   }
 
-  if (!organizationId && roles.length === 0) {
+  // Platform developers work across organizations and never own one.
+  if (!organizationId && !isPlatformDeveloper(roles) && roles.length === 0) {
     return <Navigate to="/setup-organization" replace />;
   }
 
