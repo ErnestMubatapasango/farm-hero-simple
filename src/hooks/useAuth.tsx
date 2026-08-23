@@ -25,6 +25,8 @@ interface AuthContextType {
   error: string | null;
   roles: AppRole[];
   organizationId: string | null;
+  /** True when the signed-in user's profile has no first/last name yet. */
+  needsProfileName: boolean;
   hasRole: (role: AppRole) => boolean;
   hasAnyRole: (roles: AppRole[]) => boolean;
   refreshRoles: () => Promise<void>;
