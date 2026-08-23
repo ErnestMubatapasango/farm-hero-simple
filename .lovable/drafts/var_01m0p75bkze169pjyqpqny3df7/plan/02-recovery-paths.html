@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 340" width="640" height="340">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .tag { font-size: 12px; fill: hsl(var(--border)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; }
+    .accfill { fill: hsl(var(--accent)); }
+    .accink { fill: hsl(var(--accent-foreground)); font-size: 12px; font-weight: 480; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="8" width="624" height="86" rx="8"/>
+  <text class="tag" x="20" y="26">source of truth (survives resets)</text>
+  <rect class="acc" x="24" y="36" width="200" height="44" rx="8"/>
+  <text class="lbl" x="124" y="63" text-anchor="middle">platform_developers</text>
+  <text class="note" x="244" y="55">allowlisted emails · no app role can read or write it</text>
+  <text class="note" x="244" y="73">edited only from the SQL editor</text>
+
+  <rect class="box" x="24" y="140" width="168" height="56" rx="8"/>
+  <text class="lbl" x="108" y="166" text-anchor="middle">new signup</text>
+  <text class="note" x="108" y="184" text-anchor="middle">email matches allowlist</text>
+
+  <rect class="box" x="24" y="228" width="168" height="56" rx="8"/>
+  <text class="lbl" x="108" y="254" text-anchor="middle">existing sign-in</text>
+  <text class="note" x="108" y="272" text-anchor="middle">developer role missing</text>
+
+  <rect class="box" x="248" y="184" width="168" height="56" rx="8"/>
+  <text class="lbl" x="332" y="210" text-anchor="middle">grant developer role</text>
+  <text class="note" x="332" y="228" text-anchor="middle">organization_id = null</text>
+
+  <rect class="box" x="464" y="184" width="152" height="56" rx="8"/>
+  <text class="lbl" x="540" y="210" text-anchor="middle">full platform access</text>
+  <text class="note" x="540" y="228" text-anchor="middle">any organization</text>
+
+  <line class="wire" x1="124" y1="80" x2="124" y2="140" marker-end="url(#a)"/>
+  <line class="wire" x1="192" y1="168" x2="248" y2="200" marker-end="url(#a)"/>
+  <line class="wire" x1="192" y1="256" x2="248" y2="224" marker-end="url(#a)"/>
+  <line class="wire" x1="416" y1="212" x2="464" y2="212" marker-end="url(#a)"/>
+
+  <circle class="accfill" cx="332" cy="288" r="10"/>
+  <text class="accink" x="332" y="292" text-anchor="middle">1</text>
+  <text class="note" x="352" y="292">no manual SQL needed after an accidental wipe</text>
+</svg>
