@@ -6,7 +6,6 @@ import { completePendingOrg } from "@/lib/pendingOrg";
 import {
   IDLE_TIMEOUT_MS,
   clearLastActivity,
-  markIdleLogout,
   readLastActivity,
   writeLastActivity,
 } from "@/lib/idle";
