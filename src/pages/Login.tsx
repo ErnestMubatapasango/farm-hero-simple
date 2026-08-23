@@ -34,7 +34,6 @@ export default function Login() {
   }, []);
 
   if (session) {
-    clearIdleState();
     return <Navigate to={redirectTo ?? "/"} replace />;
   }
 
