@@ -14,5 +14,6 @@ Instead of relying on a one-off function call and a hardcoded string, keep the s
 2. The existing signup trigger checks that allowlist: if a new account's email is on it, the `developer` role is granted immediately, with no organization.
 3. A tiny "heal on login" step re-grants the `developer` role if the allowlist says the signed-in user is one and the role row is missing.
 4. `ensure_platform_developer()` is rewritten to loop over the allowlist rather than one hardcoded email, and the reset script keeps calling it.
+  &nbsp;
 
 Result: even after a complete wipe, an allowlisted person just signs up (or signs in) with their email and regains developer access without anyone touching SQL.
