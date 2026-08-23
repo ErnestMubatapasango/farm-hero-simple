@@ -8,8 +8,11 @@ import {
   clearLastActivity,
   markIdleLogout,
   readLastActivity,
+  storeIdleRedirect,
   writeLastActivity,
 } from "@/lib/idle";
+
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/accept-invite"];
 
 const ACTIVITY_EVENTS = [
   "mousemove",
@@ -69,6 +72,10 @@ export function useIdleTimeout() {
       if (signingOutRef.current) return;
       signingOutRef.current = true;
       markIdleLogout();
+      const path = window.location.pathname + window.location.search;
+      if (!PUBLIC_PATHS.some((p) => window.location.pathname.startsWith(p))) {
+        storeIdleRedirect(path);
+      }
       clearLastActivity(userId);
       await supabase.auth.signOut();
     };
