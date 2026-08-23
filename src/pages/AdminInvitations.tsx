@@ -296,6 +296,8 @@ export default function AdminInvitations() {
         </div>
       </div>
 
+      {needsOrgSelection && <SelectOrgNotice what="invitations" />}
+
       {(() => {
         const counts = {
           all: invitations.length,
