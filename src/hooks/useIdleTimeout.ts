@@ -8,8 +8,11 @@ import {
   clearLastActivity,
   markIdleLogout,
   readLastActivity,
+  storeIdleRedirect,
   writeLastActivity,
 } from "@/lib/idle";
+
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/accept-invite"];
 
 const ACTIVITY_EVENTS = [
   "mousemove",
