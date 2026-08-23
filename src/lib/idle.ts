@@ -3,6 +3,8 @@ export const IDLE_WARNING_MS = 2 * 60 * 1000; // warn 2 minutes before logout
 export const IDLE_WRITE_THROTTLE_MS = 15 * 1000;
 
 export const IDLE_LOGOUT_FLAG = "kyf.idle-logout";
+export const IDLE_REDIRECT_KEY = "kyf.idle-redirect";
+
 
 export function idleStorageKey(userId: string) {
   return `kyf.last-activity.${userId}`;
