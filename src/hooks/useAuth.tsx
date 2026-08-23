@@ -60,7 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // allowlisted platform developer whose role row was lost (e.g. a data
     // wipe). The RPC is a no-op for everyone else.
     if (roleRows.length === 0) {
-      const { data: healed } = await supabase.rpc("heal_my_developer_role");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RPC lands with the staged migration
+      const { data: healed } = await (supabase as any).rpc("heal_my_developer_role");
       if (healed) {
         const retry = await supabase.from("user_roles").select("role").eq("user_id", userId);
         if (!retry.error) roleRows = retry.data || [];
