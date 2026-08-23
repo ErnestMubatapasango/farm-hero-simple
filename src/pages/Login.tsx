@@ -25,12 +25,18 @@ export default function Login() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [idleNotice, setIdleNotice] = useState(false);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
   useEffect(() => {
     if (consumeIdleLogout()) setIdleNotice(true);
+    const stored = consumeIdleRedirect();
+    if (stored) setRedirectTo(stored);
   }, []);
 
-  if (session) return <Navigate to="/" replace />;
+  if (session) {
+    clearIdleState();
+    return <Navigate to={redirectTo ?? "/"} replace />;
+  }
 
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -48,7 +54,11 @@ export default function Login() {
     }
     // Pending-org completion is handled centrally in AuthProvider.
     await refreshRoles();
-    navigate("/", { replace: true });
+    const target = redirectTo ?? "/";
+    clearIdleState();
+    setRedirectTo(null);
+    setIdleNotice(false);
+    navigate(target, { replace: true });
     setLoading(false);
   };
 
