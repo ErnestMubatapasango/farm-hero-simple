@@ -7,6 +7,12 @@
 -- children before parents, and profile pointers are cleared last so nobody
 -- ends up linked to an organization that no longer exists.
 --
+-- NEVER delete from public.platform_developers: it is the allowlist that lets
+-- platform developers regain the `developer` role. Anyone listed there simply
+-- signs in (or signs up again) and the role is re-granted automatically — add a
+-- new developer with:
+--   INSERT INTO public.platform_developers (email) VALUES ('someone@example.com');
+--
 -- NOTE: files in the private `farmer-documents` storage bucket are NOT removed
 -- by this script. Delete them separately from Storage if required.
 
@@ -27,7 +33,7 @@ DELETE FROM public.organizations;
 -- Drop dangling organization links on surviving profiles.
 UPDATE public.profiles SET organization_id = NULL WHERE organization_id IS NOT NULL;
 
--- Always leave at least one platform-wide developer behind.
+-- Re-grant the developer role to every allowlisted email that still has an account.
 SELECT public.ensure_platform_developer();
 
 COMMIT;
