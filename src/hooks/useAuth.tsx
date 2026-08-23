@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [needsProfileName, setNeedsProfileName] = useState(false);
   const mountedRef = useRef(true);
   const resolvedForRef = useRef<string | null>(null);
 
