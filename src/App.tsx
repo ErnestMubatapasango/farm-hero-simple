@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { RoleRoute } from "@/components/RoleRoute";
 import { RequireOrg } from "@/components/RequireOrg";
+import { RequireProfileName } from "@/components/RequireProfileName";
 import { AppLayout } from "@/components/AppLayout";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { UpdatePrompt } from "@/components/UpdatePrompt";
@@ -33,6 +34,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AcceptInvite from "./pages/AcceptInvite";
 import SetupOrganization from "./pages/SetupOrganization";
+import CompleteProfile from "./pages/CompleteProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +57,8 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route element={<ProtectedRoute />}>
+              <Route path="/complete-profile" element={<CompleteProfile />} />
+              <Route element={<RequireProfileName />}>
               <Route path="/setup-organization" element={<SetupOrganization />} />
               <Route element={<RequireOrg />}>
               <Route element={<AppLayout />}>
@@ -77,6 +81,7 @@ const App = () => (
                   <Route path="/admin/invitations" element={<AdminInvitations />} />
                 </Route>
 
+              </Route>
               </Route>
               </Route>
             </Route>

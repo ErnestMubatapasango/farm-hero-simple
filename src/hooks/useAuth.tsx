@@ -25,6 +25,8 @@ interface AuthContextType {
   error: string | null;
   roles: AppRole[];
   organizationId: string | null;
+  /** True when the signed-in user's profile has no first/last name yet. */
+  needsProfileName: boolean;
   hasRole: (role: AppRole) => boolean;
   hasAnyRole: (roles: AppRole[]) => boolean;
   refreshRoles: () => Promise<void>;
@@ -41,13 +43,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [needsProfileName, setNeedsProfileName] = useState(false);
   const mountedRef = useRef(true);
   const resolvedForRef = useRef<string | null>(null);
 
   const fetchRolesAndOrg = useCallback(async (userId: string) => {
     const [rolesRes, profileRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId),
-      supabase.from("profiles").select("organization_id").eq("user_id", userId).maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("organization_id, first_name, last_name, full_name")
+        .eq("user_id", userId)
+        .maybeSingle(),
     ]);
     if (rolesRes.error) throw new Error(rolesRes.error.message);
     if (profileRes.error) throw new Error(profileRes.error.message);
@@ -70,6 +77,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setRoles(roleRows.map((r) => r.role as AppRole));
     setOrganizationId(profileRes.data?.organization_id || null);
+
+    const profile = profileRes.data;
+    const hasName =
+      !!profile &&
+      ((profile.first_name?.trim() && profile.last_name?.trim()) ||
+        !!profile.full_name?.trim());
+    // Only prompt once a profile row exists; a missing row means the profile
+    // is still being provisioned.
+    setNeedsProfileName(!!profile && !hasName);
   }, []);
 
 
@@ -183,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         resolvedForRef.current = null;
         setRoles([]);
         setOrganizationId(null);
+        setNeedsProfileName(false);
         setProfileLoading(false);
         setError(null);
         return;
@@ -284,6 +301,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error,
         roles,
         organizationId,
+        needsProfileName,
         hasRole,
         hasAnyRole,
         refreshRoles,
