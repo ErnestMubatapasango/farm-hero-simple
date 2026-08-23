@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveOrg } from "@/hooks/useActiveOrg";
 import { isOrgAdmin, isOrgOwner, isPlatformDeveloper, isFieldAgentOnly, canOnboardFarmers } from "@/lib/permissions";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -50,7 +51,8 @@ interface LeaderRow {
 }
 
 export default function Dashboard() {
-  const { session, roles, loading, profileLoading, organizationId, hasAnyRole, hasRole } = useAuth();
+  const { session, roles, loading, profileLoading,  hasAnyRole, hasRole } = useAuth();
+  const { activeOrganizationId: organizationId } = useActiveOrg();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
@@ -93,7 +95,7 @@ export default function Dashboard() {
 
       const scopeFarmers = (q: any) => {
         let out = q;
-        if (!isPlatformDeveloper(roles) && organizationId) {
+        if (organizationId) {
           out = out.eq("organization_id", organizationId);
         }
         const enumeratorOnly = isFieldAgentOnly(roles);
@@ -121,7 +123,7 @@ export default function Dashboard() {
       let usersCount = 0;
       if (isAdmin) {
         let usersQuery = supabase.from("profiles").select("user_id", { count: "exact", head: true });
-        if (!isPlatformDeveloper(roles) && organizationId) {
+        if (organizationId) {
           usersQuery = usersQuery.eq("organization_id", organizationId);
         }
         const { count } = await usersQuery;
@@ -132,7 +134,7 @@ export default function Dashboard() {
       let pendingInvites = 0;
       if (isAdmin) {
         let invQuery = supabase.from("invitations").select("id", { count: "exact", head: true }).eq("status", "pending");
-        if (!isPlatformDeveloper(roles) && organizationId) {
+        if (organizationId) {
           invQuery = invQuery.eq("organization_id", organizationId);
         }
         const { count } = await invQuery;
@@ -152,7 +154,7 @@ export default function Dashboard() {
       // Still row-based, but capped and only for admins. Migrate to grouped SQL RPC in Phase 3.
       if (isAdmin) {
         let leaderQuery = supabase.from("farmers").select("enrolled_by").not("enrolled_by", "is", null);
-        if (!isPlatformDeveloper(roles) && organizationId) {
+        if (organizationId) {
           leaderQuery = leaderQuery.eq("organization_id", organizationId);
         }
         const { data: leaderRows } = await leaderQuery;
@@ -190,7 +192,7 @@ export default function Dashboard() {
         .select("id, action, from_status, to_status, created_at, farmer_id, actor_id")
         .order("created_at", { ascending: false })
         .limit(8);
-      if (!isPlatformDeveloper(roles) && organizationId) {
+      if (organizationId) {
         actQuery = actQuery.eq("organization_id", organizationId);
       }
       const { data: actData } = await actQuery;
