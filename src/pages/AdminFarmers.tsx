@@ -419,6 +419,8 @@ export default function AdminFarmers() {
         </button>
       </div>
 
+      {needsOrgSelection && <SelectOrgNotice what="farmers" />}
+
       {/* Filters */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row gap-3">

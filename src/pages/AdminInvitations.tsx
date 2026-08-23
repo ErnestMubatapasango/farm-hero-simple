@@ -236,6 +236,7 @@ export default function AdminInvitations() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Invitations</h1>
           <p className="text-muted-foreground mt-1">Invite admins and enumerators to your organization.</p>
+          <OrgSwitcher className="mt-3" />
         </div>
         <div className="flex items-center gap-2">
           <button

@@ -141,6 +141,7 @@ export default function CreditScore() {
           <p className="text-muted-foreground mt-1">
             Creditworthiness across {farmers.length} farmer(s).
           </p>
+          <OrgSwitcher className="mt-3" />
         </div>
         {isAdmin && farmers.length > 0 && (
           <Button onClick={recomputeAll} disabled={recomputing} variant="outline" size="sm">
@@ -149,6 +150,8 @@ export default function CreditScore() {
           </Button>
         )}
       </div>
+
+      {needsOrgSelection && <SelectOrgNotice what="credit scores" />}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
