@@ -301,6 +301,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error,
         roles,
         organizationId,
+        needsProfileName,
         hasRole,
         hasAnyRole,
         refreshRoles,
