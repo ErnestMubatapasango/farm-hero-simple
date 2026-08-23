@@ -52,3 +52,31 @@ export function consumeIdleLogout(): boolean {
     return false;
   }
 }
+
+export function storeIdleRedirect(path: string) {
+  try {
+    sessionStorage.setItem(IDLE_REDIRECT_KEY, path);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function consumeIdleRedirect(): string | null {
+  try {
+    const path = sessionStorage.getItem(IDLE_REDIRECT_KEY);
+    if (path) sessionStorage.removeItem(IDLE_REDIRECT_KEY);
+    return path && path.startsWith("/") ? path : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearIdleState() {
+  try {
+    sessionStorage.removeItem(IDLE_LOGOUT_FLAG);
+    sessionStorage.removeItem(IDLE_REDIRECT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
