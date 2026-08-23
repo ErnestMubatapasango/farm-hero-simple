@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveOrg } from "@/hooks/useActiveOrg";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAvatarUrl } from "@/hooks/useAvatarUrl";
 import { isOrgAdmin, isOrgOwner, PERMISSIONS } from "@/lib/permissions";
@@ -60,7 +61,8 @@ export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
-  const { session, roles, organizationId } = useAuth();
+  const { session, roles } = useAuth();
+  const { activeOrganizationId: organizationId } = useActiveOrg();
   const userId = session?.user?.id;
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const [orgName, setOrgName] = useState<string | null>(null);

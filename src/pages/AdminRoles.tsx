@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveOrg } from "@/hooks/useActiveOrg";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   isPlatformDeveloper,
@@ -35,7 +36,8 @@ interface PermissionRow {
 const PLATFORM_SCOPE = "__platform__";
 
 export default function AdminRoles() {
-  const { roles, organizationId } = useAuth();
+  const { roles } = useAuth();
+  const { activeOrganizationId: organizationId } = useActiveOrg();
   const { can } = usePermissions();
   const { toast } = useToast();
 
@@ -56,7 +58,7 @@ export default function AdminRoles() {
   const editingPlatformDefaults = scopeOrgId === null;
 
   useEffect(() => {
-    if (!isDeveloper && organizationId) setScope(organizationId);
+    if (organizationId) setScope(organizationId);
   }, [isDeveloper, organizationId]);
 
   useEffect(() => {

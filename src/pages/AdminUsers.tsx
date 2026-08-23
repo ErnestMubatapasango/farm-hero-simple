@@ -6,7 +6,7 @@ import { OrgSwitcher, SelectOrgNotice } from "@/components/OrgSwitcher";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useToast } from "@/hooks/use-toast";
 import { GerminatingLogo } from "@/components/GerminatingLogo";
-import { Mail, Clock, ShieldCheck, Pencil, Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Mail, Clock, ShieldCheck, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -41,13 +41,6 @@ interface MemberRow {
   created_at: string | null;
   last_sign_in_at: string | null;
   roles: AppRole[];
-}
-
-interface OrgRow {
-  id: string;
-  name: string;
-  slug: string | null;
-  memberCount: number;
 }
 
 function relativeTime(iso: string | null): string {
