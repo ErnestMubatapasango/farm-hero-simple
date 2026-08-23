@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Sprout, Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { completePendingOrg, stashPendingOrg } from "@/lib/pendingOrg";
-import { consumeIdleLogout } from "@/lib/idle";
+import { clearIdleState, consumeIdleLogout, consumeIdleRedirect } from "@/lib/idle";
 
 
 type AuthMode = "signin" | "create-org";
