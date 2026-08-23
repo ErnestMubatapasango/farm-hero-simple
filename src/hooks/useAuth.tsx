@@ -199,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         resolvedForRef.current = null;
         setRoles([]);
         setOrganizationId(null);
+        setNeedsProfileName(false);
         setProfileLoading(false);
         setError(null);
         return;
