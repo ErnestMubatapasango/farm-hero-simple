@@ -53,9 +53,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (rolesRes.error) throw new Error(rolesRes.error.message);
     if (profileRes.error) throw new Error(profileRes.error.message);
     if (!mountedRef.current) return;
-    setRoles((rolesRes.data || []).map((r) => r.role as AppRole));
+
+    let roleRows = rolesRes.data || [];
+
+    // Recovery path: a signed-in account with no roles at all may be an
+    // allowlisted platform developer whose role row was lost (e.g. a data
+    // wipe). The RPC is a no-op for everyone else.
+    if (roleRows.length === 0) {
+      const { data: healed } = await supabase.rpc("heal_my_developer_role");
+      if (healed) {
+        const retry = await supabase.from("user_roles").select("role").eq("user_id", userId);
+        if (!retry.error) roleRows = retry.data || [];
+      }
+      if (!mountedRef.current) return;
+    }
+
+    setRoles(roleRows.map((r) => r.role as AppRole));
     setOrganizationId(profileRes.data?.organization_id || null);
   }, []);
+
 
   // A user is treated as revoked only if they have a historical revoked
   // invitation AND currently hold no active roles.
