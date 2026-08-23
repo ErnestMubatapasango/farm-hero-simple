@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
     if (Date.now() - last < IDLE_TIMEOUT_MS) return false;
-    markIdleLogout();
+    // Session restore path (user was away): sign out silently, no notice.
     clearLastActivity(uid);
     await supabase.auth.signOut();
     return true;
