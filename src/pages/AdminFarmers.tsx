@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveOrg } from "@/hooks/useActiveOrg";
+import { OrgSwitcher, SelectOrgNotice } from "@/components/OrgSwitcher";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
@@ -90,7 +91,7 @@ function escapeIlike(value: string) {
 
 export default function AdminFarmers() {
   const { roles, session,  hasRole, hasAnyRole } = useAuth();
-  const { activeOrganizationId: organizationId } = useActiveOrg();
+  const { activeOrganizationId: organizationId, needsOrgSelection } = useActiveOrg();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -402,6 +403,7 @@ export default function AdminFarmers() {
           <p className="text-muted-foreground mt-1">
             {total} farmer(s){debouncedQ ? ` matching "${debouncedQ}"` : ""}.
           </p>
+          <OrgSwitcher className="mt-3" />
         </div>
         <button
           onClick={exportCsv}

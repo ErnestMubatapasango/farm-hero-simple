@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveOrg } from "@/hooks/useActiveOrg";
+import { OrgSwitcher, SelectOrgNotice } from "@/components/OrgSwitcher";
 import { isOrgAdmin, isOrgOwner, isPlatformDeveloper, isFieldAgentOnly, canOnboardFarmers } from "@/lib/permissions";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -52,7 +53,7 @@ interface LeaderRow {
 
 export default function Dashboard() {
   const { session, roles, loading, profileLoading,  hasAnyRole, hasRole } = useAuth();
-  const { activeOrganizationId: organizationId } = useActiveOrg();
+  const { activeOrganizationId: organizationId, needsOrgSelection } = useActiveOrg();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
@@ -247,12 +248,15 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-foreground leading-tight">
           {greeting()}, {firstName || email}
         </h1>
+        <OrgSwitcher className="mt-3" />
         {/* <p className="text-muted-foreground mt-1 capitalize">{roleLabel}</p> */}
       </div>
 
 
+      {needsOrgSelection && <SelectOrgNotice what="dashboard" />}
+
       {/* Stats cards */}
-      {loadingStats ? (
+      {!needsOrgSelection && loadingStats ? (
         <div className="flex items-center justify-center py-12">
           <GerminatingLogo fullScreen={false} size="sm" message="Loading stats..." />
         </div>

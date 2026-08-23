@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveOrg } from "@/hooks/useActiveOrg";
+import { OrgSwitcher, SelectOrgNotice } from "@/components/OrgSwitcher";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
@@ -39,7 +40,7 @@ function bandColor(score: number) {
 
 export default function CreditScore() {
   const { roles, session,  hasRole, hasAnyRole } = useAuth();
-  const { activeOrganizationId: organizationId } = useActiveOrg();
+  const { activeOrganizationId: organizationId, needsOrgSelection } = useActiveOrg();
   const { toast } = useToast();
   const [farmers, setFarmers] = useState<FarmerRow[]>([]);
   const [scores, setScores] = useState<Record<string, ScoreRow>>({});

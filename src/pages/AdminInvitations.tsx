@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveOrg } from "@/hooks/useActiveOrg";
+import { OrgSwitcher, SelectOrgNotice } from "@/components/OrgSwitcher";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgOwner, isPlatformDeveloper, PERMISSIONS } from "@/lib/permissions";
 import { Input } from "@/components/ui/input";
@@ -43,7 +44,7 @@ interface Invitation {
 
 export default function AdminInvitations() {
   const { roles,  hasRole, session } = useAuth();
-  const { activeOrganizationId: organizationId } = useActiveOrg();
+  const { activeOrganizationId: organizationId, needsOrgSelection } = useActiveOrg();
   const { toast } = useToast();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [nameMap, setNameMap] = useState<Record<string, string | null>>({});
