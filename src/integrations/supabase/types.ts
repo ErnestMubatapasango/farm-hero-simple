@@ -612,6 +612,24 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_developers: {
+        Row: {
+          created_at: string
+          email: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -823,6 +841,7 @@ export type Database = {
             }
             Returns: boolean
           }
+      heal_my_developer_role: { Args: never; Returns: boolean }
       list_org_members: {
         Args: { _org_id: string }
         Returns: {
