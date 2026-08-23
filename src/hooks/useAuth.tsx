@@ -77,6 +77,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setRoles(roleRows.map((r) => r.role as AppRole));
     setOrganizationId(profileRes.data?.organization_id || null);
+
+    const profile = profileRes.data;
+    const hasName =
+      !!profile &&
+      ((profile.first_name?.trim() && profile.last_name?.trim()) ||
+        !!profile.full_name?.trim());
+    // Only prompt once a profile row exists; a missing row means the profile
+    // is still being provisioned.
+    setNeedsProfileName(!!profile && !hasName);
   }, []);
 
 
