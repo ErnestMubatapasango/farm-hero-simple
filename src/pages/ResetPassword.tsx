@@ -37,8 +37,13 @@ export default function ResetPassword() {
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      setError(error.message);
+      setError(
+        isSamePasswordError(error)
+          ? "That's the same as your current password. Enter a different one."
+          : passwordErrorMessage(error),
+      );
     } else {
+
       setMessage("Password updated. Redirecting to sign in...");
       await supabase.auth.signOut();
       setTimeout(() => navigate("/login"), 1500);
