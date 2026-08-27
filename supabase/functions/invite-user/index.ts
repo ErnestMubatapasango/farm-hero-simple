@@ -129,30 +129,48 @@ Deno.serve(async (req) => {
     if (!callerCanActOnOrg(orgId)) return json({ error: "Forbidden" }, 403);
 
     // Pre-flight: does an auth user with this email already exist?
-    // inviteUserByEmail fails hard for existing users; detect it up-front to give a clear response.
+    // inviteUserByEmail fails hard for existing users; detect it up-front.
     let existingUserId: string | null = null;
     try {
-      // listUsers doesn't support server-side email filter reliably; scan the first page.
-      const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-      const match = list?.users?.find((u) => (u.email ?? "").toLowerCase() === email);
-      if (match) existingUserId = match.id;
-    } catch (_) { /* ignore */ }
+      const res = await fetch(
+        `${SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(email)}&per_page=50`,
+        { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } },
+      );
+      if (res.ok) {
+        const payload = await res.json();
+        const match = (payload?.users ?? []).find(
+          (u: { id: string; email?: string | null }) => (u.email ?? "").toLowerCase() === email,
+        );
+        if (match) existingUserId = match.id;
+      } else {
+        console.error("[invite-user] admin user lookup failed:", res.status, await res.text());
+      }
+    } catch (e) {
+      console.error("[invite-user] admin user lookup threw:", e);
+    }
 
+    // An existing auth user with NO roles anywhere is an abandoned/revoked
+    // signup — re-invitable. Roles in this org => already a member.
+    // Roles elsewhere => belongs to another organization.
+    let reinviteExisting = false;
     if (existingUserId) {
-      // Already a member of this org?
       const { data: existingRoles } = await admin
         .from("user_roles")
-        .select("role")
-        .eq("user_id", existingUserId)
-        .eq("organization_id", orgId);
-      if ((existingRoles?.length ?? 0) > 0) {
+        .select("role, organization_id")
+        .eq("user_id", existingUserId);
+      const rows = existingRoles ?? [];
+      if (rows.some((r) => r.organization_id === orgId)) {
         return json({ error: "This user is already a member of your organization." }, 409);
       }
-      return json({
-        error:
-          "This email is already registered with another account. Ask them to sign in with their existing password — they can't be invited as a new user.",
-      }, 409);
+      if (rows.length > 0) {
+        return json({
+          error:
+            "This email is already registered with another organization. Ask them to sign in with their existing password — they can't be invited as a new user.",
+        }, 409);
+      }
+      reinviteExisting = true;
     }
+
 
     // Insert the invitations row FIRST so acceptance logic has a target even
     // if the email dispatch flakes.
@@ -164,12 +182,36 @@ Deno.serve(async (req) => {
         role,
         invited_by: callerId,
         status: "pending",
+        invited_user_id: existingUserId,
       })
       .select("id")
       .single();
     if (rowErr) {
       console.error("[invite-user] insert invitations failed:", rowErr);
       return json({ error: "Invitation could not be recorded" }, 400);
+    }
+
+    const markFailed = async (message: string) => {
+      await admin
+        .from("invitations")
+        .update({ status: "failed", last_error: message })
+        .eq("id", invRow.id);
+    };
+
+    if (reinviteExisting) {
+      // inviteUserByEmail hard-fails for existing (confirmed) users. Send a
+      // recovery-style link instead — it establishes a session on
+      // /accept-invite where they set a password and accept the invitation.
+      const anon = createClient(SUPABASE_URL, ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { error: resetErr } = await anon.auth.resetPasswordForEmail(email, { redirectTo });
+      if (resetErr) {
+        console.error("[invite-user] recovery link for existing user failed:", resetErr);
+        await markFailed(resetErr.message ?? "Unknown error");
+        return json({ error: `Invitation could not be sent: ${resetErr.message ?? "unknown error"}` }, 400);
+      }
+      return json({ ok: true, reinvited: true });
     }
 
     const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
@@ -179,10 +221,7 @@ Deno.serve(async (req) => {
     if (inviteErr) {
       console.error("[invite-user] inviteUserByEmail failed:", inviteErr);
       // Mark row as 'failed' (NOT 'revoked') and record the underlying reason so admins can retry.
-      await admin
-        .from("invitations")
-        .update({ status: "failed", last_error: inviteErr.message ?? "Unknown error" })
-        .eq("id", invRow.id);
+      await markFailed(inviteErr.message ?? "Unknown error");
       return json({ error: `Invitation could not be sent: ${inviteErr.message ?? "unknown error"}` }, 400);
     }
 
@@ -195,6 +234,7 @@ Deno.serve(async (req) => {
 
     return json({ ok: true });
   }
+
 
   if (action === "resend") {
     if (!body.invitation_id) return json({ error: "invitation_id required" }, 400);
