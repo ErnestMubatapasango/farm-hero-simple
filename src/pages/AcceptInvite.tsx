@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Loader2, Sprout, Eye, EyeOff } from "lucide-react";
+import { isSamePasswordError, passwordErrorMessage } from "@/lib/authErrors";
+
 
 
 export default function AcceptInvite() {
