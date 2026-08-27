@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useActiveOrg } from "@/hooks/useActiveOrg";
 import { GerminatingLogo } from "@/components/GerminatingLogo";
 import { Users, Ruler, TrendingUp, ShieldCheck } from "lucide-react";
 import {
@@ -48,7 +48,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function OrgAnalyticsDashboard() {
-  const { organizationId } = useAuth();
+  const { activeOrganizationId: organizationId } = useActiveOrg();
   const [farmers, setFarmers] = useState<FarmerRow[]>([]);
   const [yields, setYields] = useState<YieldRow[]>([]);
   const [health, setHealth] = useState<HealthRow[]>([]);

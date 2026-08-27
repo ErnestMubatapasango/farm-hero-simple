@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveOrg } from "@/hooks/useActiveOrg";
+import { OrgSwitcher, SelectOrgNotice } from "@/components/OrgSwitcher";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 import { GerminatingLogo } from "@/components/GerminatingLogo";
@@ -53,6 +55,7 @@ function requiredSummary(docs: DocSummary[]) {
 
 export default function Documents() {
   const { roles, session, hasAnyRole } = useAuth();
+  const { activeOrganizationId, needsOrgSelection } = useActiveOrg();
   const { can } = usePermissions();
   const isAdmin = isOrgAdmin(roles) || can(PERMISSIONS.documentsVerify);
   const [farmers, setFarmers] = useState<FarmerRow[]>([]);
@@ -68,6 +71,7 @@ export default function Documents() {
         .from("farmers")
         .select("id,first_name,last_name,region,district,organization_id,enrolled_by,status")
         .order("last_name");
+      if (activeOrganizationId) q = q.eq("organization_id", activeOrganizationId);
       if (!isAdmin) q = q.eq("enrolled_by", session.user.id);
       const { data: fData } = await q;
       const list = (fData as FarmerRow[]) || [];
@@ -87,7 +91,7 @@ export default function Documents() {
       }
       setLoading(false);
     })();
-  }, [session?.user?.id, isAdmin]);
+  }, [session?.user?.id, isAdmin, activeOrganizationId]);
 
   const byFarmer = useMemo(() => {
     const m = new Map<string, DocSummary[]>();
@@ -116,7 +120,10 @@ export default function Documents() {
             ? "Review, verify, and track documents for every farmer in your organization."
             : "Upload and manage documents for the farmers you onboarded."}
         </p>
+        <OrgSwitcher className="mt-3" />
       </div>
+
+      {needsOrgSelection && <SelectOrgNotice what="documents" />}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

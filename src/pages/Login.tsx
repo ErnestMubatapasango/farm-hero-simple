@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Sprout, Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { completePendingOrg, stashPendingOrg } from "@/lib/pendingOrg";
-import { consumeIdleLogout } from "@/lib/idle";
+import { clearIdleState, consumeIdleLogout, consumeIdleRedirect } from "@/lib/idle";
 
 
 type AuthMode = "signin" | "create-org";
@@ -25,12 +25,17 @@ export default function Login() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [idleNotice, setIdleNotice] = useState(false);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
   useEffect(() => {
     if (consumeIdleLogout()) setIdleNotice(true);
+    const stored = consumeIdleRedirect();
+    if (stored) setRedirectTo(stored);
   }, []);
 
-  if (session) return <Navigate to="/" replace />;
+  if (session) {
+    return <Navigate to={redirectTo ?? "/"} replace />;
+  }
 
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -48,7 +53,11 @@ export default function Login() {
     }
     // Pending-org completion is handled centrally in AuthProvider.
     await refreshRoles();
-    navigate("/", { replace: true });
+    const target = redirectTo ?? "/";
+    clearIdleState();
+    setRedirectTo(null);
+    setIdleNotice(false);
+    navigate(target, { replace: true });
     setLoading(false);
   };
 

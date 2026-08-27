@@ -12,6 +12,8 @@ import { Loader2, Mail, Calendar, Camera, Phone, Building2, Pencil } from "lucid
 
 interface ProfileRow {
   full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   avatar_url: string | null;
   phone: string | null;
   created_at: string | null;
@@ -30,7 +32,8 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
 
   const avatarSrc = useAvatarUrl(profile?.avatar_url);
@@ -39,12 +42,13 @@ export default function Profile() {
     if (!userId) return;
     supabase
       .from("profiles")
-      .select("full_name, avatar_url, phone, created_at, organization_id")
+      .select("full_name, first_name, last_name, avatar_url, phone, created_at, organization_id")
       .eq("user_id", userId)
       .maybeSingle()
       .then(async ({ data }) => {
         setProfile(data ?? null);
-        setFullName(data?.full_name ?? "");
+        setFirstName(data?.first_name ?? "");
+        setLastName(data?.last_name ?? "");
         setPhone(data?.phone ?? "");
         if (data?.organization_id) {
           const { data: org } = await supabase
@@ -60,8 +64,12 @@ export default function Profile() {
 
   const handleSave = async () => {
     if (!userId) return;
-    if (!fullName.trim()) {
-      toast({ title: "Name required", description: "Please enter your full name.", variant: "destructive" });
+    if (!firstName.trim() || !lastName.trim()) {
+      toast({
+        title: "Name required",
+        description: "Please enter both your first and last name.",
+        variant: "destructive",
+      });
       return;
     }
     if (phone.trim() && !/^\+?[0-9\s-]{7,20}$/.test(phone.trim())) {
@@ -71,14 +79,28 @@ export default function Profile() {
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName.trim().slice(0, 100), phone: phone.trim().slice(0, 20) || null })
+      .update({
+        first_name: firstName.trim().slice(0, 50),
+        last_name: lastName.trim().slice(0, 50),
+        phone: phone.trim().slice(0, 20) || null,
+      })
       .eq("user_id", userId);
     setSaving(false);
     if (error) {
       toast({ title: "Could not save", description: error.message, variant: "destructive" });
       return;
     }
-    setProfile((p) => (p ? { ...p, full_name: fullName.trim(), phone: phone.trim() || null } : p));
+    setProfile((p) =>
+      p
+        ? {
+            ...p,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+            phone: phone.trim() || null,
+          }
+        : p
+    );
     setEditing(false);
     toast({ title: "Profile updated" });
   };
@@ -170,15 +192,27 @@ export default function Profile() {
 
         {editing ? (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="full_name">Full Name</label>
-              <Input
-                id="full_name"
-                value={fullName}
-                maxLength={100}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Jane Doe"
-              />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground" htmlFor="first_name">First Name</label>
+                <Input
+                  id="first_name"
+                  value={firstName}
+                  maxLength={50}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Jane"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground" htmlFor="last_name">Last Name</label>
+                <Input
+                  id="last_name"
+                  value={lastName}
+                  maxLength={50}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Doe"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground" htmlFor="phone">Phone Number</label>
@@ -199,7 +233,8 @@ export default function Profile() {
               <Button
                 variant="ghost"
                 onClick={() => {
-                  setFullName(profile?.full_name ?? "");
+                  setFirstName(profile?.first_name ?? "");
+                  setLastName(profile?.last_name ?? "");
                   setPhone(profile?.phone ?? "");
                   setEditing(false);
                 }}

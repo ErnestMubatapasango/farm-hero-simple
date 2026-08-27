@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -612,12 +612,32 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_developers: {
+        Row: {
+          created_at: string
+          email: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          first_name: string | null
           full_name: string | null
           id: string
+          last_name: string | null
           organization_id: string | null
           phone: string | null
           preferred_currency: string
@@ -627,8 +647,10 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
           organization_id?: string | null
           phone?: string | null
           preferred_currency?: string
@@ -638,8 +660,10 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
           organization_id?: string | null
           phone?: string | null
           preferred_currency?: string
@@ -823,6 +847,7 @@ export type Database = {
             }
             Returns: boolean
           }
+      heal_my_developer_role: { Args: never; Returns: boolean }
       list_org_members: {
         Args: { _org_id: string }
         Returns: {

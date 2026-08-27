@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveOrg } from "@/hooks/useActiveOrg";
+import { OrgSwitcher, SelectOrgNotice } from "@/components/OrgSwitcher";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, isPlatformDeveloper, isFieldAgentOnly, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
@@ -37,7 +39,8 @@ function bandColor(score: number) {
 }
 
 export default function CreditScore() {
-  const { roles, session, organizationId, hasRole, hasAnyRole } = useAuth();
+  const { roles, session,  hasRole, hasAnyRole } = useAuth();
+  const { activeOrganizationId: organizationId, needsOrgSelection } = useActiveOrg();
   const { toast } = useToast();
   const [farmers, setFarmers] = useState<FarmerRow[]>([]);
   const [scores, setScores] = useState<Record<string, ScoreRow>>({});
@@ -56,7 +59,7 @@ export default function CreditScore() {
       .from("farmers")
       .select("id, first_name, last_name, region, primary_crops, status, enrolled_by")
       .order("created_at", { ascending: false });
-    if (!isPlatformDeveloper(roles) && organizationId) {
+    if (organizationId) {
       q = q.eq("organization_id", organizationId);
     }
     if (enumeratorOnly && session?.user?.id) {
@@ -138,6 +141,7 @@ export default function CreditScore() {
           <p className="text-muted-foreground mt-1">
             Creditworthiness across {farmers.length} farmer(s).
           </p>
+          <OrgSwitcher className="mt-3" />
         </div>
         {isAdmin && farmers.length > 0 && (
           <Button onClick={recomputeAll} disabled={recomputing} variant="outline" size="sm">
@@ -146,6 +150,8 @@ export default function CreditScore() {
           </Button>
         )}
       </div>
+
+      {needsOrgSelection && <SelectOrgNotice what="credit scores" />}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
