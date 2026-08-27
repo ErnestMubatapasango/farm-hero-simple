@@ -63,10 +63,23 @@ export default function AcceptInvite() {
       data: { full_name: fullName },
     });
     if (updateErr) {
-      setError(updateErr.message);
-      setLoading(false);
-      return;
+      if (!isSamePasswordError(updateErr)) {
+        setError(passwordErrorMessage(updateErr));
+        setLoading(false);
+        return;
+      }
+      // The account already uses this password — that's fine here, the invitee
+      // knows it. Persist the name on its own and continue activating.
+      const { error: nameErr } = await supabase.auth.updateUser({
+        data: { full_name: fullName },
+      });
+      if (nameErr) {
+        setError(nameErr.message);
+        setLoading(false);
+        return;
+      }
     }
+
     // Mark the matching invitation as accepted (and ensure profile/role rows exist).
     const { error: rpcErr } = await supabase.rpc("accept_my_invitation", {
       _full_name: fullName,
