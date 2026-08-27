@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Sprout, Eye, EyeOff } from "lucide-react";
+import { isSamePasswordError, passwordErrorMessage } from "@/lib/authErrors";
+
 
 export default function ResetPassword() {
   const navigate = useNavigate();
