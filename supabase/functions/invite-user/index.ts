@@ -129,30 +129,48 @@ Deno.serve(async (req) => {
     if (!callerCanActOnOrg(orgId)) return json({ error: "Forbidden" }, 403);
 
     // Pre-flight: does an auth user with this email already exist?
-    // inviteUserByEmail fails hard for existing users; detect it up-front to give a clear response.
+    // inviteUserByEmail fails hard for existing users; detect it up-front.
     let existingUserId: string | null = null;
     try {
-      // listUsers doesn't support server-side email filter reliably; scan the first page.
-      const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-      const match = list?.users?.find((u) => (u.email ?? "").toLowerCase() === email);
-      if (match) existingUserId = match.id;
-    } catch (_) { /* ignore */ }
+      const res = await fetch(
+        `${SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(email)}&per_page=50`,
+        { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } },
+      );
+      if (res.ok) {
+        const payload = await res.json();
+        const match = (payload?.users ?? []).find(
+          (u: { id: string; email?: string | null }) => (u.email ?? "").toLowerCase() === email,
+        );
+        if (match) existingUserId = match.id;
+      } else {
+        console.error("[invite-user] admin user lookup failed:", res.status, await res.text());
+      }
+    } catch (e) {
+      console.error("[invite-user] admin user lookup threw:", e);
+    }
 
+    // An existing auth user with NO roles anywhere is an abandoned/revoked
+    // signup — re-invitable. Roles in this org => already a member.
+    // Roles elsewhere => belongs to another organization.
+    let reinviteExisting = false;
     if (existingUserId) {
-      // Already a member of this org?
       const { data: existingRoles } = await admin
         .from("user_roles")
-        .select("role")
-        .eq("user_id", existingUserId)
-        .eq("organization_id", orgId);
-      if ((existingRoles?.length ?? 0) > 0) {
+        .select("role, organization_id")
+        .eq("user_id", existingUserId);
+      const rows = existingRoles ?? [];
+      if (rows.some((r) => r.organization_id === orgId)) {
         return json({ error: "This user is already a member of your organization." }, 409);
       }
-      return json({
-        error:
-          "This email is already registered with another account. Ask them to sign in with their existing password — they can't be invited as a new user.",
-      }, 409);
+      if (rows.length > 0) {
+        return json({
+          error:
+            "This email is already registered with another organization. Ask them to sign in with their existing password — they can't be invited as a new user.",
+        }, 409);
+      }
+      reinviteExisting = true;
     }
+
 
     // Insert the invitations row FIRST so acceptance logic has a target even
     // if the email dispatch flakes.
