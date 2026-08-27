@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Sprout, Eye, EyeOff } from "lucide-react";
+import { isSamePasswordError, passwordErrorMessage } from "@/lib/authErrors";
+
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -37,8 +39,13 @@ export default function ResetPassword() {
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      setError(error.message);
+      setError(
+        isSamePasswordError(error)
+          ? "That's the same as your current password. Enter a different one."
+          : passwordErrorMessage(error),
+      );
     } else {
+
       setMessage("Password updated. Redirecting to sign in...");
       await supabase.auth.signOut();
       setTimeout(() => navigate("/login"), 1500);
