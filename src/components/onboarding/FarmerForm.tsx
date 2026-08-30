@@ -167,6 +167,23 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
   const handleSubmit = async () => {
     if (!session?.user?.id || !organizationId) return;
 
+    const firstInvalidStep = (["personal", "farm", "crops", "financial"] as Step[]).find(
+      (s) => stepInvalid[s],
+    );
+    if (firstInvalidStep) {
+      toast({
+        title: "Please fix the highlighted fields",
+        description:
+          dobError ?? farmSizeError ?? incomeError ?? Object.values(yieldErrors)[0] ??
+          "Some required information is missing.",
+        variant: "destructive",
+      });
+      setStep(firstInvalidStep);
+      return;
+    }
+
+
+
     const selectedCrops = [form.cropInfo.primaryCrop, form.cropInfo.secondaryCrop].filter(Boolean);
     for (const c of selectedCrops) {
       if (!form.cropInfo.farmingMethods[c]) {
