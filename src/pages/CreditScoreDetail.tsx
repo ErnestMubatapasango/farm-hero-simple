@@ -9,7 +9,12 @@ import { GerminatingLogo } from "@/components/GerminatingLogo";
 import { ArrowLeft, Gauge, RefreshCw, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loadAndComputeScore } from "@/lib/credit-score-service";
-import type { CreditScoreResult } from "@/lib/credit-score";
+import {
+  CONFIDENCE_KEY,
+  CONFIDENCE_THRESHOLD,
+  getConfidence,
+  type CreditScoreResult,
+} from "@/lib/credit-score";
 
 interface FarmerHead {
   id: string;
@@ -25,6 +30,7 @@ function bandColor(score: number) {
   if (score < 800) return "text-primary";
   return "text-green-600";
 }
+
 
 export default function CreditScoreDetail() {
   const { farmerId } = useParams<{ farmerId: string }>();
