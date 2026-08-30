@@ -138,10 +138,24 @@ export default function AdminInvitations() {
 
   const callInviteFn = async (payload: Record<string, unknown>) => {
     const { data, error } = await supabase.functions.invoke("invite-user", { body: payload });
-    if (error) throw new Error(error.message);
+    if (error) {
+      // supabase-js reports every non-2xx as a generic message; the real reason
+      // lives in the response body attached to error.context.
+      const res = (error as { context?: Response }).context;
+      if (res && typeof res.json === "function") {
+        try {
+          const body = await res.clone().json();
+          if (body?.error) throw new Error(String(body.error));
+        } catch (parseErr) {
+          if (parseErr instanceof Error && parseErr.message && !/JSON/i.test(parseErr.message)) throw parseErr;
+        }
+      }
+      throw new Error(error.message);
+    }
     if (data?.error) throw new Error(data.error);
     return data;
   };
+
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
