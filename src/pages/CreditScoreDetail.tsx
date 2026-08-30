@@ -6,7 +6,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { GerminatingLogo } from "@/components/GerminatingLogo";
-import { ArrowLeft, Gauge, RefreshCw, Lightbulb } from "lucide-react";
+import { ArrowLeft, Gauge, RefreshCw, Lightbulb, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loadAndComputeScore } from "@/lib/credit-score-service";
 import {
