@@ -181,32 +181,47 @@ export default function CropsStep({ cropInfo, yieldHistory, setFormData, errors 
                     <Label className="text-xs text-muted-foreground">Yield History (last 2 years)</Label>
                     {[previousYear, currentYear].map((year) => {
                       const key = `${crop}_${year}`;
+                      const yieldErr = errors[`${key}.yield`] as string | undefined;
+                      const revErr = errors[`${key}.revenue`] as string | undefined;
+                      const yearErr = errors[`${key}.year`] as string | undefined;
                       return (
-                        <div key={year} className="grid grid-cols-3 gap-2 sm:gap-3 items-center">
-                          <span className="text-sm text-muted-foreground">{year}</span>
-                          <Input
-                            placeholder="Yield (kg)"
-                            type="text"
-                            className="text-sm"
-                            value={formatNumber(yieldHistory[key]?.yield)}
-                            onChange={(e) => {
-                              const cleaned = e.target.value.replace(/[^\d]/g, "");
-                              handleYieldChange(crop, year, "yield", cleaned);
-                            }}
-                          />
-                          <Input
-                            placeholder="Revenue (USD)"
-                            type="text"
-                            className="text-sm"
-                            value={formatNumber(yieldHistory[key]?.revenue)}
-                            onChange={(e) => {
-                              const cleaned = e.target.value.replace(/[^\d]/g, "");
-                              handleYieldChange(crop, year, "revenue", cleaned);
-                            }}
-                          />
+                        <div key={year} className="space-y-1">
+                          <div className="grid grid-cols-3 gap-2 sm:gap-3 items-center">
+                            <span className="text-sm text-muted-foreground">{year}</span>
+                            <Input
+                              placeholder="Yield (kg)"
+                              type="text"
+                              inputMode="numeric"
+                              aria-invalid={Boolean(yieldErr)}
+                              className={cn("text-sm", errCls(`${key}.yield`))}
+                              value={formatNumber(yieldHistory[key]?.yield)}
+                              onChange={(e) => {
+                                const cleaned = e.target.value.replace(/[^\d]/g, "");
+                                handleYieldChange(crop, year, "yield", cleaned);
+                              }}
+                            />
+                            <Input
+                              placeholder="Revenue (USD)"
+                              type="text"
+                              inputMode="numeric"
+                              aria-invalid={Boolean(revErr)}
+                              className={cn("text-sm", errCls(`${key}.revenue`))}
+                              value={formatNumber(yieldHistory[key]?.revenue)}
+                              onChange={(e) => {
+                                const cleaned = e.target.value.replace(/[^\d]/g, "");
+                                handleYieldChange(crop, year, "revenue", cleaned);
+                              }}
+                            />
+                          </div>
+                          {(yearErr || yieldErr || revErr) && (
+                            <p className="text-xs text-destructive col-span-3">
+                              {yearErr ?? yieldErr ?? revErr}
+                            </p>
+                          )}
                         </div>
                       );
                     })}
+
                   </div>
                 </div>
               </div>
