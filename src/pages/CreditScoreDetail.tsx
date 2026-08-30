@@ -123,6 +123,29 @@ export default function CreditScoreDetail() {
         <Gauge className={`h-10 w-10 mx-auto ${bandColor(result.score)}`} />
         <p className={`text-6xl font-bold ${bandColor(result.score)}`}>{result.score}</p>
         <p className="text-lg font-medium text-foreground">{result.band}</p>
+        {confidence !== null && (
+          <div className="pt-2 space-y-1.5 max-w-xs mx-auto">
+            <div className="flex items-center justify-center gap-1.5 text-xs">
+              <ShieldCheck
+                className={`h-3.5 w-3.5 ${lowConfidence ? "text-kyf-amber" : "text-primary"}`}
+              />
+              <span className={lowConfidence ? "text-kyf-amber" : "text-muted-foreground"}>
+                Data confidence {confidence}%
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full transition-all ${lowConfidence ? "bg-kyf-amber" : "bg-primary"}`}
+                style={{ width: `${confidence}%` }}
+              />
+            </div>
+            {lowConfidence && (
+              <p className="text-xs text-kyf-amber">
+                Below {CONFIDENCE_THRESHOLD}% — treat this score as indicative only.
+              </p>
+            )}
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">
           Range 300–850 · Last computed{" "}
           {computedAt ? new Date(computedAt).toLocaleString() : "just now"}
@@ -133,7 +156,9 @@ export default function CreditScoreDetail() {
       <div className="kyf-card p-5 space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Breakdown</h2>
         <div className="space-y-3">
-          {result.breakdown.map((b) => (
+          {result.breakdown
+            .filter((b) => b.key !== CONFIDENCE_KEY)
+            .map((b) => (
             <div key={b.key} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-foreground">{b.label}</span>
@@ -152,6 +177,7 @@ export default function CreditScoreDetail() {
           ))}
         </div>
       </div>
+
 
       {/* Recommendations */}
       {result.recommendations.length > 0 && (
