@@ -494,6 +494,8 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
             <CropsStep
               cropInfo={form.cropInfo}
               yieldHistory={form.yieldHistory}
+              errors={yieldErrors}
+
               setFormData={(updater: (prev: FarmerFormState) => FarmerFormState) =>
                 setForm((prev) => updater(prev))
               }
@@ -538,7 +540,25 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Annual Income (USD)</Label>
-                <Input value={form.annual_income} onChange={(e) => update("annual_income", e.target.value)} type="number" placeholder="0.00" />
+                <Input
+                  value={form.annual_income}
+                  onChange={(e) => update("annual_income", e.target.value)}
+                  type="number"
+                  min={ANNUAL_INCOME_MIN}
+                  max={ANNUAL_INCOME_MAX}
+                  step={ANNUAL_INCOME_STEP}
+                  placeholder="0.00"
+                  aria-invalid={Boolean(incomeError)}
+                  className={incomeError ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {incomeError ? (
+                  <p className="text-xs text-destructive">{incomeError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Between {ANNUAL_INCOME_MIN} and {ANNUAL_INCOME_MAX.toLocaleString()}.
+                  </p>
+                )}
+
               </div>
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 text-sm pt-7">
