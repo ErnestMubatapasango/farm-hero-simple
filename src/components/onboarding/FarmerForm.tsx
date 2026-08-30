@@ -612,10 +612,8 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
             <button
               type="button"
               onClick={goNext}
-              disabled={
-                (step === "personal" && (!form.first_name || !form.last_name)) ||
-                (step === "crops" && !form.cropInfo.primaryCrop)
-              }
+              disabled={stepInvalid[step]}
+
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all"
             >
               Next
@@ -625,7 +623,7 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !form.first_name || !form.last_name}
+              disabled={submitting || formInvalid}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
