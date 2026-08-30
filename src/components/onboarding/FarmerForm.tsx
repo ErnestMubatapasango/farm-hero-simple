@@ -398,7 +398,18 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
               </div>
               <div className="space-y-1.5">
                 <Label>Date of Birth</Label>
-                <Input type="date" value={form.date_of_birth} onChange={(e) => update("date_of_birth", e.target.value)} required />
+                <Input
+                  type="date"
+                  value={form.date_of_birth}
+                  onChange={(e) => update("date_of_birth", e.target.value)}
+                  min={minDateOfBirth()}
+                  max={maxDateOfBirth()}
+                  aria-invalid={Boolean(dobError)}
+                  className={dobError ? "border-destructive focus-visible:ring-destructive" : ""}
+                  required
+                />
+                {dobError && <p className="text-xs text-destructive">{dobError}</p>}
+
               </div>
               <div className="space-y-1.5">
                 <Label>Gender</Label>
@@ -429,7 +440,25 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
               </div>
               <div className="space-y-1.5">
                 <Label>Farm Size (hectares)</Label>
-                <Input value={form.farm_size_hectares} onChange={(e) => update("farm_size_hectares", e.target.value)} type="number" placeholder="4.2" />
+                <Input
+                  value={form.farm_size_hectares}
+                  onChange={(e) => update("farm_size_hectares", e.target.value)}
+                  type="number"
+                  min={FARM_SIZE_STEP}
+                  max={FARM_SIZE_MAX}
+                  step={FARM_SIZE_STEP}
+                  placeholder="4.2"
+                  aria-invalid={Boolean(farmSizeError)}
+                  className={farmSizeError ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {farmSizeError ? (
+                  <p className="text-xs text-destructive">{farmSizeError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Greater than 0, up to {FARM_SIZE_MAX.toLocaleString()} ha.
+                  </p>
+                )}
+
               </div>
               <div className="space-y-1.5">
                 <Label>Region (Province)</Label>
