@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { isOrgAdmin, canOnboardFarmers } from "@/lib/permissions";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,20 @@ import CropsStep from "@/components/onboarding/CropsStep";
 import { saveFarmer as offlineSaveFarmer } from "@/lib/offline/farmerRepo";
 import { syncManager } from "@/lib/offline/syncManager";
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
+import {
+  ANNUAL_INCOME_MAX,
+  ANNUAL_INCOME_MIN,
+  ANNUAL_INCOME_STEP,
+  FARM_SIZE_MAX,
+  FARM_SIZE_STEP,
+  maxDateOfBirth,
+  minDateOfBirth,
+  validateAnnualIncome,
+  validateDateOfBirth,
+  validateFarmSize,
+  validateYieldHistory,
+} from "@/lib/farmer-validation";
+
 
 type Step = "personal" | "farm" | "crops" | "financial";
 
@@ -126,12 +140,49 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
   const update = (field: keyof FarmerFormState, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  // ---- validation (mirrors the DB CHECK constraints + save_farmer RPC) ----
+  const dobError = validateDateOfBirth(form.date_of_birth);
+  const farmSizeError = validateFarmSize(form.farm_size_hectares);
+  const incomeError = validateAnnualIncome(form.annual_income);
+  const yieldErrors = useMemo(() => validateYieldHistory(form.yieldHistory), [form.yieldHistory]);
+  const hasYieldErrors = Object.keys(yieldErrors).length > 0;
+
+  const stepInvalid: Record<Step, boolean> = {
+    personal: !form.first_name || !form.last_name || Boolean(dobError),
+    farm: Boolean(farmSizeError),
+    crops: !form.cropInfo.primaryCrop || hasYieldErrors,
+    financial: Boolean(incomeError),
+  };
+  const formInvalid =
+    stepInvalid.personal || stepInvalid.farm || stepInvalid.crops || stepInvalid.financial;
+
   const stepIndex = STEPS.findIndex((s) => s.key === step);
-  const goNext = () => stepIndex < STEPS.length - 1 && setStep(STEPS[stepIndex + 1].key);
+  const goNext = () => {
+    if (stepInvalid[step]) return;
+    if (stepIndex < STEPS.length - 1) setStep(STEPS[stepIndex + 1].key);
+  };
   const goBack = () => stepIndex > 0 && setStep(STEPS[stepIndex - 1].key);
+
 
   const handleSubmit = async () => {
     if (!session?.user?.id || !organizationId) return;
+
+    const firstInvalidStep = (["personal", "farm", "crops", "financial"] as Step[]).find(
+      (s) => stepInvalid[s],
+    );
+    if (firstInvalidStep) {
+      toast({
+        title: "Please fix the highlighted fields",
+        description:
+          dobError ?? farmSizeError ?? incomeError ?? Object.values(yieldErrors)[0] ??
+          "Some required information is missing.",
+        variant: "destructive",
+      });
+      setStep(firstInvalidStep);
+      return;
+    }
+
+
 
     const selectedCrops = [form.cropInfo.primaryCrop, form.cropInfo.secondaryCrop].filter(Boolean);
     for (const c of selectedCrops) {
@@ -347,7 +398,18 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
               </div>
               <div className="space-y-1.5">
                 <Label>Date of Birth</Label>
-                <Input type="date" value={form.date_of_birth} onChange={(e) => update("date_of_birth", e.target.value)} required />
+                <Input
+                  type="date"
+                  value={form.date_of_birth}
+                  onChange={(e) => update("date_of_birth", e.target.value)}
+                  min={minDateOfBirth()}
+                  max={maxDateOfBirth()}
+                  aria-invalid={Boolean(dobError)}
+                  className={dobError ? "border-destructive focus-visible:ring-destructive" : ""}
+                  required
+                />
+                {dobError && <p className="text-xs text-destructive">{dobError}</p>}
+
               </div>
               <div className="space-y-1.5">
                 <Label>Gender</Label>
@@ -378,7 +440,25 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
               </div>
               <div className="space-y-1.5">
                 <Label>Farm Size (hectares)</Label>
-                <Input value={form.farm_size_hectares} onChange={(e) => update("farm_size_hectares", e.target.value)} type="number" placeholder="4.2" />
+                <Input
+                  value={form.farm_size_hectares}
+                  onChange={(e) => update("farm_size_hectares", e.target.value)}
+                  type="number"
+                  min={FARM_SIZE_STEP}
+                  max={FARM_SIZE_MAX}
+                  step={FARM_SIZE_STEP}
+                  placeholder="4.2"
+                  aria-invalid={Boolean(farmSizeError)}
+                  className={farmSizeError ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {farmSizeError ? (
+                  <p className="text-xs text-destructive">{farmSizeError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Greater than 0, up to {FARM_SIZE_MAX.toLocaleString()} ha.
+                  </p>
+                )}
+
               </div>
               <div className="space-y-1.5">
                 <Label>Region (Province)</Label>
@@ -414,6 +494,8 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
             <CropsStep
               cropInfo={form.cropInfo}
               yieldHistory={form.yieldHistory}
+              errors={yieldErrors}
+
               setFormData={(updater: (prev: FarmerFormState) => FarmerFormState) =>
                 setForm((prev) => updater(prev))
               }
@@ -458,7 +540,25 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Annual Income (USD)</Label>
-                <Input value={form.annual_income} onChange={(e) => update("annual_income", e.target.value)} type="number" placeholder="0.00" />
+                <Input
+                  value={form.annual_income}
+                  onChange={(e) => update("annual_income", e.target.value)}
+                  type="number"
+                  min={ANNUAL_INCOME_MIN}
+                  max={ANNUAL_INCOME_MAX}
+                  step={ANNUAL_INCOME_STEP}
+                  placeholder="0.00"
+                  aria-invalid={Boolean(incomeError)}
+                  className={incomeError ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {incomeError ? (
+                  <p className="text-xs text-destructive">{incomeError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Between {ANNUAL_INCOME_MIN} and {ANNUAL_INCOME_MAX.toLocaleString()}.
+                  </p>
+                )}
+
               </div>
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 text-sm pt-7">
@@ -512,10 +612,8 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
             <button
               type="button"
               onClick={goNext}
-              disabled={
-                (step === "personal" && (!form.first_name || !form.last_name)) ||
-                (step === "crops" && !form.cropInfo.primaryCrop)
-              }
+              disabled={stepInvalid[step]}
+
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all"
             >
               Next
@@ -525,7 +623,7 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !form.first_name || !form.last_name}
+              disabled={submitting || formInvalid}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
