@@ -20,6 +20,8 @@ export interface PersistedScore {
 
 function bandColorFor(band: string): string {
   switch (band) {
+    case "Insufficient data":
+      return "text-muted-foreground";
     case "Poor":
       return "text-destructive";
     case "Fair":
@@ -29,6 +31,7 @@ function bandColorFor(band: string): string {
       return "text-primary";
   }
 }
+
 
 export async function loadAndComputeScore(
   farmerId: string,
