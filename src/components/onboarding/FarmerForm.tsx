@@ -140,9 +140,29 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
   const update = (field: keyof FarmerFormState, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  // ---- validation (mirrors the DB CHECK constraints + save_farmer RPC) ----
+  const dobError = validateDateOfBirth(form.date_of_birth);
+  const farmSizeError = validateFarmSize(form.farm_size_hectares);
+  const incomeError = validateAnnualIncome(form.annual_income);
+  const yieldErrors = useMemo(() => validateYieldHistory(form.yieldHistory), [form.yieldHistory]);
+  const hasYieldErrors = Object.keys(yieldErrors).length > 0;
+
+  const stepInvalid: Record<Step, boolean> = {
+    personal: !form.first_name || !form.last_name || Boolean(dobError),
+    farm: Boolean(farmSizeError),
+    crops: !form.cropInfo.primaryCrop || hasYieldErrors,
+    financial: Boolean(incomeError),
+  };
+  const formInvalid =
+    stepInvalid.personal || stepInvalid.farm || stepInvalid.crops || stepInvalid.financial;
+
   const stepIndex = STEPS.findIndex((s) => s.key === step);
-  const goNext = () => stepIndex < STEPS.length - 1 && setStep(STEPS[stepIndex + 1].key);
+  const goNext = () => {
+    if (stepInvalid[step]) return;
+    if (stepIndex < STEPS.length - 1) setStep(STEPS[stepIndex + 1].key);
+  };
   const goBack = () => stepIndex > 0 && setStep(STEPS[stepIndex - 1].key);
+
 
   const handleSubmit = async () => {
     if (!session?.user?.id || !organizationId) return;
