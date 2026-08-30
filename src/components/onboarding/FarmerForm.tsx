@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { isOrgAdmin, canOnboardFarmers } from "@/lib/permissions";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,20 @@ import CropsStep from "@/components/onboarding/CropsStep";
 import { saveFarmer as offlineSaveFarmer } from "@/lib/offline/farmerRepo";
 import { syncManager } from "@/lib/offline/syncManager";
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
+import {
+  ANNUAL_INCOME_MAX,
+  ANNUAL_INCOME_MIN,
+  ANNUAL_INCOME_STEP,
+  FARM_SIZE_MAX,
+  FARM_SIZE_STEP,
+  maxDateOfBirth,
+  minDateOfBirth,
+  validateAnnualIncome,
+  validateDateOfBirth,
+  validateFarmSize,
+  validateYieldHistory,
+} from "@/lib/farmer-validation";
+
 
 type Step = "personal" | "farm" | "crops" | "financial";
 
