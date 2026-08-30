@@ -92,6 +92,11 @@ export default function CreditScoreDetail() {
     );
   }
 
+  const confidence = getConfidence(result.breakdown);
+  const lowConfidence = confidence !== null && confidence < CONFIDENCE_THRESHOLD;
+
+
+
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
