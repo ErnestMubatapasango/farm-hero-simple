@@ -9,7 +9,7 @@ import { completePendingOrg, stashPendingOrg } from "@/lib/pendingOrg";
 import { clearIdleState, consumeIdleLogout, consumeIdleRedirect } from "@/lib/idle";
 
 
-type AuthMode = "signin" | "create-org";
+type AuthMode = "signin" | "create-org" | "developer";
 
 export default function Login() {
   const { session, refreshRoles } = useAuth();
@@ -18,6 +18,8 @@ export default function Login() {
   const [mode, setMode] = useState<AuthMode>("signin");
   const [orgName, setOrgName] = useState("");
   const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
