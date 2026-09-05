@@ -54,6 +54,7 @@ const DOC_TYPES: { value: string; label: string }[] = [
 ];
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const ALLOWED_MIME = ["application/pdf", "image/png", "image/jpeg"];
 
 interface Props {
   farmerId: string;
@@ -278,7 +279,7 @@ export default function FarmerDocumentsSection({
             </div>
             <div className="flex-1">
               <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                File (PDF or image, max 10 MB)
+                File (PDF, PNG or JPEG, max 10 MB)
               </label>
               <input
                 type="file"
