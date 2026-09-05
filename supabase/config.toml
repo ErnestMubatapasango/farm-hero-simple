@@ -1,3 +1,6 @@
 project_id = "qcelqcpluhbwmdqkxvhd"
 [functions.invite-user]
 verify_jwt = true
+
+[functions.developer-signup]
+verify_jwt = false
