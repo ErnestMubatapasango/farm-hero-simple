@@ -464,8 +464,49 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>National ID </Label>
-                <Input value={form.national_id} onChange={(e) => update("national_id", e.target.value)} placeholder="Enter national ID number..." required />
+                <Label>National ID</Label>
+                <Input
+                  value={form.national_id}
+                  onChange={(e) => {
+                    setIdentity(null);
+                    update("national_id", e.target.value.toUpperCase());
+                  }}
+                  onBlur={lookupIdentity}
+                  placeholder={`e.g. ${NATIONAL_ID_EXAMPLE}`}
+                  aria-invalid={Boolean(nationalIdError)}
+                  className={nationalIdError ? "border-destructive focus-visible:ring-destructive" : ""}
+                  required
+                />
+                {nationalIdError ? (
+                  <p className="text-xs text-destructive">{nationalIdError}</p>
+                ) : checkingIdentity ? (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Checking national ID…
+                  </p>
+                ) : duplicateFarmerId ? (
+                  <p className="text-xs text-destructive">
+                    This national ID is already enrolled in your organization.{" "}
+                    <button
+                      type="button"
+                      className="underline font-medium"
+                      onClick={() => navigate(`/admin/farmer/${duplicateFarmerId}`)}
+                    >
+                      Open the existing record
+                    </button>
+                  </p>
+                ) : identity?.known ? (
+                  <p className="text-xs text-primary">
+                    Known person on the platform{identity.full_name ? ` — ${identity.full_name}` : ""}
+                    {identity.date_of_birth ? ` (born ${identity.date_of_birth})` : ""}. This record will be
+                    linked to them.
+                  </p>
+                ) : identity ? (
+                  <p className="text-xs text-muted-foreground">New farmer — a new identity will be created.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Required. Format {NATIONAL_ID_EXAMPLE}.
+                  </p>
+                )}
               </div>
             </div>
           </>
