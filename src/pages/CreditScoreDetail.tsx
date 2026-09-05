@@ -6,15 +6,20 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { GerminatingLogo } from "@/components/GerminatingLogo";
-import { ArrowLeft, Gauge, RefreshCw, Lightbulb, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Gauge, RefreshCw, Lightbulb, ShieldCheck, Banknote, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loadAndComputeScore } from "@/lib/credit-score-service";
 import {
   CONFIDENCE_KEY,
   CONFIDENCE_THRESHOLD,
+  LENDING_KEY,
   getConfidence,
+  getLending,
+  getNegativeFactors,
+  getPositiveFactors,
   type CreditScoreResult,
 } from "@/lib/credit-score";
+
 
 interface FarmerHead {
   id: string;
@@ -94,6 +99,11 @@ export default function CreditScoreDetail() {
 
   const confidence = getConfidence(result.breakdown);
   const lowConfidence = confidence !== null && confidence < CONFIDENCE_THRESHOLD;
+  const lending = getLending(result.breakdown);
+  const positives = getPositiveFactors(result.breakdown);
+  const negatives = getNegativeFactors(result.breakdown);
+  const hasRange = !!lending && (lending.max ?? 0) > 0;
+
 
 
 
@@ -157,13 +167,81 @@ export default function CreditScoreDetail() {
         </p>
       </div>
 
+      {/* Lending guidance */}
+      {lending && (
+        <div className="kyf-card p-5 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Banknote className="h-4 w-4 text-primary" />
+            Lending guidance
+          </div>
+          {hasRange ? (
+            <>
+              <p className="text-2xl font-bold text-foreground">
+                ${Math.round(lending.min ?? 0).toLocaleString()} – ${Math.round(lending.max ?? 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">{lending.detail}</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">{lending.detail}</p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Indicative only — based on the {result.band} band and recorded turnover. Final approval remains with the lender.
+          </p>
+        </div>
+      )}
+
+      {/* Why this score */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="kyf-card p-5 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            What supports this score
+          </div>
+          {positives.length > 0 ? (
+            <ul className="space-y-2">
+              {positives.map((b) => (
+                <li key={b.key} className="text-sm">
+                  <span className="font-medium text-foreground">{b.label}</span>
+                  <span className="text-muted-foreground"> · {Math.round(b.score)}/100</span>
+                  <p className="text-xs text-muted-foreground">{b.detail}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">No strong factors yet.</p>
+          )}
+        </div>
+        <div className="kyf-card p-5 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <AlertTriangle className="h-4 w-4 text-kyf-amber" />
+            What holds it back
+          </div>
+          {negatives.length > 0 ? (
+            <ul className="space-y-2">
+              {negatives.map((b) => (
+                <li key={b.key} className="text-sm">
+                  <span className="font-medium text-foreground">{b.label}</span>
+                  <span className="text-muted-foreground">
+                    {" "}· {Math.round(b.score)}/100 · weight {Math.round(b.weight * 100)}%
+                  </span>
+                  <p className="text-xs text-muted-foreground">{b.detail}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nothing significant holding this score back.</p>
+          )}
+        </div>
+      </div>
+
       {/* Breakdown */}
       <div className="kyf-card p-5 space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Breakdown</h2>
         <div className="space-y-3">
           {result.breakdown
-            .filter((b) => b.key !== CONFIDENCE_KEY)
+            .filter((b) => b.key !== CONFIDENCE_KEY && b.key !== LENDING_KEY)
             .map((b) => (
+
             <div key={b.key} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-foreground">{b.label}</span>
