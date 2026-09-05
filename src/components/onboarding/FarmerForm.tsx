@@ -249,7 +249,7 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
       email: form.email,
       date_of_birth: form.date_of_birth,
       gender: form.gender,
-      national_id: form.national_id,
+      national_id: normalizeNationalId(form.national_id),
       region: form.region,
       district: form.district,
       ward: form.ward,
