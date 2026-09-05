@@ -168,7 +168,11 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">KYF Platform</h1>
           <p className="text-sm text-muted-foreground">
-            {mode === "create-org" ? "Create your organization" : "Sign in to continue"}
+            {mode === "create-org"
+              ? "Create your organization"
+              : mode === "developer"
+                ? "Platform developer access"
+                : "Sign in to continue"}
           </p>
         </div>
 
