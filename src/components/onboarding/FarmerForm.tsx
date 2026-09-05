@@ -128,6 +128,14 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
   const [form, setForm] = useState<FarmerFormState>(initialData ?? emptyFarmerForm);
   const [submitting, setSubmitting] = useState(false);
   const [savedFarmer, setSavedFarmer] = useState<{ id: string; name: string } | null>(null);
+  const [identity, setIdentity] = useState<{
+    known: boolean;
+    full_name: string | null;
+    date_of_birth: string | null;
+    in_my_org: boolean;
+    my_org_farmer_id: string | null;
+  } | null>(null);
+  const [checkingIdentity, setCheckingIdentity] = useState(false);
 
   const canOnboard = canOnboardFarmers(roles);
 
