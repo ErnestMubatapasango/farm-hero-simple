@@ -274,7 +274,7 @@ export default function FarmerDocumentsSection({
               </label>
               <input
                 type="file"
-                accept="image/*,application/pdf"
+                accept="application/pdf,image/png,image/jpeg"
                 disabled={uploading}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
