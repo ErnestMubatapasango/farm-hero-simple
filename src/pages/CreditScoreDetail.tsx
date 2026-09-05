@@ -99,6 +99,11 @@ export default function CreditScoreDetail() {
 
   const confidence = getConfidence(result.breakdown);
   const lowConfidence = confidence !== null && confidence < CONFIDENCE_THRESHOLD;
+  const lending = getLending(result.breakdown);
+  const positives = getPositiveFactors(result.breakdown);
+  const negatives = getNegativeFactors(result.breakdown);
+  const hasRange = !!lending && (lending.max ?? 0) > 0;
+
 
 
 
