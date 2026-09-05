@@ -314,7 +314,13 @@ export default function Login() {
             disabled={loading}
             className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:opacity-90 active:scale-[0.97] disabled:opacity-50"
           >
-            {loading ? "Please wait..." : mode === "create-org" ? "Create Organization" : "Sign In"}
+            {loading
+              ? "Please wait..."
+              : mode === "create-org"
+                ? "Create Organization"
+                : mode === "developer"
+                  ? "Create Developer Account"
+                  : "Sign In"}
           </button>
         </form>
       </div>
