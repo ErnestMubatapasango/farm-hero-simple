@@ -245,10 +245,12 @@ export default function Dashboard() {
             <span className="text-xs font-medium text-foreground">{orgName}</span>
           </div>
         )}
-        <h1 className="text-2xl font-bold text-foreground leading-tight">
-          {greeting()}, {firstName || email}
-        </h1>
-        <OrgSwitcher className="mt-3" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h1 className="text-2xl font-bold text-foreground leading-tight">
+            {greeting()}, {firstName || email}
+          </h1>
+          <OrgSwitcher className="w-full sm:w-auto" />
+        </div>
         {/* <p className="text-muted-foreground mt-1 capitalize">{roleLabel}</p> */}
       </div>
 

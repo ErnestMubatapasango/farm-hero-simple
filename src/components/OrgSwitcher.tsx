@@ -43,10 +43,12 @@ export function OrgSwitcher({ className }: { className?: string }) {
           )}
           {organizations.map((o) => (
             <SelectItem key={o.id} value={o.id}>
-              <span className="truncate">{o.name}</span>
-              <span className="ml-2 text-xs text-muted-foreground">
-                {o.memberCount} members · {o.farmerCount} farmers
-              </span>
+              <div className="flex flex-col gap-0.5 py-0.5">
+                <span className="truncate font-medium">{o.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {o.memberCount} members · {o.farmerCount} farmers
+                </span>
+              </div>
             </SelectItem>
           ))}
         </SelectContent>
