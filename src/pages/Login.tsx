@@ -188,10 +188,6 @@ export default function Login() {
           <button
             type="button"
             onClick={() => { setMode("signin"); setError(""); setMessage(""); }}
-        <div className="flex rounded-lg bg-muted p-1">
-          <button
-            type="button"
-            onClick={() => { setMode("signin"); setError(""); setMessage(""); }}
             className={`flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors sm:text-sm ${mode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
           >
             Sign In
