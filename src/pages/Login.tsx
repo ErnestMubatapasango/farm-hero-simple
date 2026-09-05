@@ -106,9 +106,56 @@ export default function Login() {
     setLoading(false);
   };
 
+  const handleDeveloperSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+    setLoading(true);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("developer-signup", {
+        body: {
+          email: email.trim().toLowerCase(),
+          password,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        },
+      });
+
+      const payload = (data ?? {}) as { ok?: boolean; error?: string };
+      if (fnError || payload.error) {
+        let msg = payload.error;
+        if (!msg && fnError) {
+          // Non-2xx responses arrive as a FunctionsHttpError; read the body.
+          try {
+            const ctx = (fnError as unknown as { context?: Response }).context;
+            const parsed = ctx ? await ctx.json() : null;
+            msg = parsed?.error;
+          } catch {
+            /* fall through to generic message */
+          }
+        }
+        throw new Error(msg || "Could not create the developer account.");
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (signInError) throw signInError;
+
+      await refreshRoles();
+      clearIdleState();
+      navigate("/", { replace: true });
+    } catch (err: any) {
+      setError(err.message);
+    }
+    setLoading(false);
+  };
 
   const getSubmitHandler = () => {
     if (mode === "create-org") return handleCreateOrg;
+    if (mode === "developer") return handleDeveloperSignup;
     return handleSignIn;
   };
 
