@@ -54,6 +54,7 @@ const DOC_TYPES: { value: string; label: string }[] = [
 ];
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const ALLOWED_MIME = ["application/pdf", "image/png", "image/jpeg"];
 
 interface Props {
   farmerId: string;
@@ -97,6 +98,14 @@ export default function FarmerDocumentsSection({
     if (!session?.user?.id) return;
     if (file.size > MAX_BYTES) {
       toast({ title: "File too large", description: "Max 10 MB.", variant: "destructive" });
+      return;
+    }
+    if (!ALLOWED_MIME.includes(file.type)) {
+      toast({
+        title: "Unsupported file type",
+        description: "Only PDF, PNG and JPEG files are allowed.",
+        variant: "destructive",
+      });
       return;
     }
     setUploading(true);
@@ -270,11 +279,11 @@ export default function FarmerDocumentsSection({
             </div>
             <div className="flex-1">
               <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                File (PDF or image, max 10 MB)
+                File (PDF, PNG or JPEG, max 10 MB)
               </label>
               <input
                 type="file"
-                accept="image/*,application/pdf"
+                accept="application/pdf,image/png,image/jpeg"
                 disabled={uploading}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
