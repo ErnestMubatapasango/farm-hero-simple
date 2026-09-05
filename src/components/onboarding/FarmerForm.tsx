@@ -20,17 +20,21 @@ import CropsStep from "@/components/onboarding/CropsStep";
 import { saveFarmer as offlineSaveFarmer } from "@/lib/offline/farmerRepo";
 import { syncManager } from "@/lib/offline/syncManager";
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ANNUAL_INCOME_MAX,
   ANNUAL_INCOME_MIN,
   ANNUAL_INCOME_STEP,
   FARM_SIZE_MAX,
   FARM_SIZE_STEP,
+  NATIONAL_ID_EXAMPLE,
   maxDateOfBirth,
   minDateOfBirth,
+  normalizeNationalId,
   validateAnnualIncome,
   validateDateOfBirth,
   validateFarmSize,
+  validateNationalId,
   validateYieldHistory,
 } from "@/lib/farmer-validation";
 
