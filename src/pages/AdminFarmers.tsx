@@ -414,18 +414,20 @@ export default function AdminFarmers() {
           </p>
           <OrgSwitcher className="mt-3" />
         </div>
-        <button
-          onClick={exportCsv}
-          disabled={exporting || total === 0}
-          className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
-        >
-          {exporting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
-          Export CSV
-        </button>
+        {canExport && (
+          <button
+            onClick={exportCsv}
+            disabled={exporting || total === 0}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Export CSV
+          </button>
+        )}
       </div>
 
       {needsOrgSelection && <SelectOrgNotice what="farmers" />}
