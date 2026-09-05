@@ -873,6 +873,30 @@ export type Database = {
         Returns: string
       }
       ensure_platform_developer: { Args: { _email?: string }; Returns: string }
+      export_farmers: {
+        Args: {
+          _org_id: string
+          _search?: string
+          _sort?: string
+          _status?: string
+        }
+        Returns: {
+          created_at: string
+          district: string
+          farm_name: string
+          farm_size_hectares: number
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          primary_crops: string[]
+          primary_livestock: string[]
+          region: string
+          status: string
+          village: string
+          ward: string
+        }[]
+      }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_permission: {
         Args: { _org_id: string; _perm: string; _user_id: string }
