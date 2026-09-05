@@ -188,16 +188,27 @@ export default function Login() {
           <button
             type="button"
             onClick={() => { setMode("signin"); setError(""); setMessage(""); }}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+        <div className="flex rounded-lg bg-muted p-1">
+          <button
+            type="button"
+            onClick={() => { setMode("signin"); setError(""); setMessage(""); }}
+            className={`flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors sm:text-sm ${mode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
           >
             Sign In
           </button>
           <button
             type="button"
             onClick={() => { setMode("create-org"); setError(""); setMessage(""); }}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === "create-org" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+            className={`flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors sm:text-sm ${mode === "create-org" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
           >
             Create Organization
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("developer"); setError(""); setMessage(""); }}
+            className={`flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors sm:text-sm ${mode === "developer" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+          >
+            Developer
           </button>
         </div>
 
@@ -223,6 +234,37 @@ export default function Login() {
                   placeholder="John Doe"
                   required
                 />
+              </div>
+            </>
+          )}
+
+          {mode === "developer" && (
+            <>
+              <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                Developer accounts are not tied to an organization and are limited to
+                pre-approved email addresses.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">First Name</label>
+                  <Input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Jane"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Last Name</label>
+                  <Input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Doe"
+                    required
+                  />
+                </div>
               </div>
             </>
           )}
