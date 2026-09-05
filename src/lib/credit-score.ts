@@ -12,7 +12,12 @@ export type ScoreBreakdown = {
   weight: number; // weight share (0-1); the confidence row has weight 0
   weighted: number; // score * weight
   detail: string;
+  /** Lending row only: indicative facility bounds and the turnover they derive from. */
+  min?: number;
+  max?: number;
+  basis?: number;
 };
+
 
 export type CreditScoreBand =
   | "Insufficient data"
