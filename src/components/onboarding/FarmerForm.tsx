@@ -214,7 +214,8 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
       toast({
         title: "Please fix the highlighted fields",
         description:
-          dobError ?? farmSizeError ?? incomeError ?? Object.values(yieldErrors)[0] ??
+          (duplicateFarmerId ? "This national ID is already enrolled in your organization." : null) ??
+          nationalIdError ?? dobError ?? farmSizeError ?? incomeError ?? Object.values(yieldErrors)[0] ??
           "Some required information is missing.",
         variant: "destructive",
       });
