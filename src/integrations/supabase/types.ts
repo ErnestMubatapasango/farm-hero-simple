@@ -314,6 +314,33 @@ export type Database = {
           },
         ]
       }
+      farmer_identities: {
+        Row: {
+          created_at: string
+          date_of_birth: string | null
+          full_name: string | null
+          id: string
+          national_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth?: string | null
+          full_name?: string | null
+          id?: string
+          national_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string | null
+          full_name?: string | null
+          id?: string
+          national_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       farmers: {
         Row: {
           annual_income: number | null
@@ -329,6 +356,7 @@ export type Database = {
           gender: string | null
           has_bank_account: boolean | null
           id: string
+          identity_id: string | null
           last_name: string
           mobile_money_provider: string | null
           national_id: string | null
@@ -362,6 +390,7 @@ export type Database = {
           gender?: string | null
           has_bank_account?: boolean | null
           id?: string
+          identity_id?: string | null
           last_name: string
           mobile_money_provider?: string | null
           national_id?: string | null
@@ -395,6 +424,7 @@ export type Database = {
           gender?: string | null
           has_bank_account?: boolean | null
           id?: string
+          identity_id?: string | null
           last_name?: string
           mobile_money_provider?: string | null
           national_id?: string | null
@@ -415,6 +445,13 @@ export type Database = {
           ward?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "farmers_identity_id_fkey"
+            columns: ["identity_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_identities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "farmers_organization_id_fkey"
             columns: ["organization_id"]
@@ -775,6 +812,16 @@ export type Database = {
       }
       can_edit_farmer: { Args: { _farmer_id: string }; Returns: boolean }
       can_view_farmer: { Args: { _farmer_id: string }; Returns: boolean }
+      check_farmer_identity: {
+        Args: { _national_id: string }
+        Returns: {
+          date_of_birth: string
+          full_name: string
+          in_my_org: boolean
+          known: boolean
+          my_org_farmer_id: string
+        }[]
+      }
       compute_credit_score: {
         Args: { _farmer_id: string }
         Returns: {
@@ -865,12 +912,17 @@ export type Database = {
           permission_key: string
         }[]
       }
+      normalize_national_id: { Args: { _v: string }; Returns: string }
       reset_role_permissions: {
         Args: {
           _org_id: string
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: undefined
+      }
+      resolve_farmer_identity: {
+        Args: { _dob: string; _full_name: string; _national_id: string }
+        Returns: string
       }
       revoke_invitation: {
         Args: { _invitation_id: string }
