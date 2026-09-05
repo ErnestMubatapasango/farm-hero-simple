@@ -346,26 +346,32 @@ export default function AdminFarmers() {
 
 
   const exportCsv = async () => {
+    if (!canExport) {
+      toast({
+        title: "Not allowed",
+        description: "You don't have permission to export farmers.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!organizationId) {
+      toast({ title: "Select an organization first", variant: "destructive" });
+      return;
+    }
     setExporting(true);
     try {
-      const all: Farmer[] = [];
-      const batchSize = 1000;
-      let from = 0;
-      while (true) {
-        let q = buildBaseQuery(SELECT_COLS, false);
-        q = applyUserFilters(q, { status: statusFilter, search: debouncedQ });
-        q = applySort(q, sort).range(from, from + batchSize - 1);
-        const { data, error } = await q;
-        if (error) {
-          toast({ title: "Export failed", description: error.message, variant: "destructive" });
-          setExporting(false);
-          return;
-        }
-        const rows = ((data as unknown) as Farmer[]) || [];
-        all.push(...rows);
-        if (rows.length < batchSize) break;
-        from += batchSize;
+      // Server-side permission check + RLS scoping happen inside export_farmers.
+      const { data, error } = await supabase.rpc("export_farmers", {
+        _org_id: organizationId,
+        _status: statusFilter,
+        _search: debouncedQ,
+        _sort: sort,
+      });
+      if (error) {
+        toast({ title: "Export failed", description: error.message, variant: "destructive" });
+        return;
       }
+      const all = ((data as unknown) as Farmer[]) || [];
       const csv = toCsv(all, [
         { key: "first_name", header: "First name" },
         { key: "last_name", header: "Last name" },
@@ -388,6 +394,7 @@ export default function AdminFarmers() {
       setExporting(false);
     }
   };
+
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const showingFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
