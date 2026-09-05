@@ -99,6 +99,8 @@ export default function AdminFarmers() {
   const { can } = usePermissions();
   const isAdmin = isOrgAdmin(roles) || can(PERMISSIONS.farmersVerify);
   const enumeratorOnly = isFieldAgentOnly(roles);
+  const canExport = can(PERMISSIONS.farmersExport);
+
 
   // URL-backed state
   const statusFilter = searchParams.get("status") || "all";
