@@ -20,17 +20,21 @@ import CropsStep from "@/components/onboarding/CropsStep";
 import { saveFarmer as offlineSaveFarmer } from "@/lib/offline/farmerRepo";
 import { syncManager } from "@/lib/offline/syncManager";
 import FarmerDocumentsSection from "@/components/farmer/FarmerDocumentsSection";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ANNUAL_INCOME_MAX,
   ANNUAL_INCOME_MIN,
   ANNUAL_INCOME_STEP,
   FARM_SIZE_MAX,
   FARM_SIZE_STEP,
+  NATIONAL_ID_EXAMPLE,
   maxDateOfBirth,
   minDateOfBirth,
+  normalizeNationalId,
   validateAnnualIncome,
   validateDateOfBirth,
   validateFarmSize,
+  validateNationalId,
   validateYieldHistory,
 } from "@/lib/farmer-validation";
 
@@ -124,6 +128,14 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
   const [form, setForm] = useState<FarmerFormState>(initialData ?? emptyFarmerForm);
   const [submitting, setSubmitting] = useState(false);
   const [savedFarmer, setSavedFarmer] = useState<{ id: string; name: string } | null>(null);
+  const [identity, setIdentity] = useState<{
+    known: boolean;
+    full_name: string | null;
+    date_of_birth: string | null;
+    in_my_org: boolean;
+    my_org_farmer_id: string | null;
+  } | null>(null);
+  const [checkingIdentity, setCheckingIdentity] = useState(false);
 
   const canOnboard = canOnboardFarmers(roles);
 
@@ -144,11 +156,39 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
   const dobError = validateDateOfBirth(form.date_of_birth);
   const farmSizeError = validateFarmSize(form.farm_size_hectares);
   const incomeError = validateAnnualIncome(form.annual_income);
+  const nationalIdError = validateNationalId(form.national_id);
   const yieldErrors = useMemo(() => validateYieldHistory(form.yieldHistory), [form.yieldHistory]);
   const hasYieldErrors = Object.keys(yieldErrors).length > 0;
 
+  const duplicateFarmerId =
+    identity?.in_my_org && identity.my_org_farmer_id && identity.my_org_farmer_id !== farmerId
+      ? identity.my_org_farmer_id
+      : null;
+
+  const lookupIdentity = async () => {
+    const nid = normalizeNationalId(form.national_id);
+    if (validateNationalId(nid)) {
+      setIdentity(null);
+      return;
+    }
+    setCheckingIdentity(true);
+    const { data, error } = await supabase.rpc("check_farmer_identity", { _national_id: nid });
+    setCheckingIdentity(false);
+    if (error) {
+      setIdentity(null);
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    setIdentity(row ?? null);
+  };
+
   const stepInvalid: Record<Step, boolean> = {
-    personal: !form.first_name || !form.last_name || Boolean(dobError),
+    personal:
+      !form.first_name ||
+      !form.last_name ||
+      Boolean(dobError) ||
+      Boolean(nationalIdError) ||
+      Boolean(duplicateFarmerId),
     farm: Boolean(farmSizeError),
     crops: !form.cropInfo.primaryCrop || hasYieldErrors,
     financial: Boolean(incomeError),
@@ -174,7 +214,8 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
       toast({
         title: "Please fix the highlighted fields",
         description:
-          dobError ?? farmSizeError ?? incomeError ?? Object.values(yieldErrors)[0] ??
+          (duplicateFarmerId ? "This national ID is already enrolled in your organization." : null) ??
+          nationalIdError ?? dobError ?? farmSizeError ?? incomeError ?? Object.values(yieldErrors)[0] ??
           "Some required information is missing.",
         variant: "destructive",
       });
@@ -208,7 +249,7 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
       email: form.email,
       date_of_birth: form.date_of_birth,
       gender: form.gender,
-      national_id: form.national_id,
+      national_id: normalizeNationalId(form.national_id),
       region: form.region,
       district: form.district,
       ward: form.ward,
@@ -423,8 +464,49 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>National ID </Label>
-                <Input value={form.national_id} onChange={(e) => update("national_id", e.target.value)} placeholder="Enter national ID number..." required />
+                <Label>National ID</Label>
+                <Input
+                  value={form.national_id}
+                  onChange={(e) => {
+                    setIdentity(null);
+                    update("national_id", e.target.value.toUpperCase());
+                  }}
+                  onBlur={lookupIdentity}
+                  placeholder={`e.g. ${NATIONAL_ID_EXAMPLE}`}
+                  aria-invalid={Boolean(nationalIdError)}
+                  className={nationalIdError ? "border-destructive focus-visible:ring-destructive" : ""}
+                  required
+                />
+                {nationalIdError ? (
+                  <p className="text-xs text-destructive">{nationalIdError}</p>
+                ) : checkingIdentity ? (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Checking national ID…
+                  </p>
+                ) : duplicateFarmerId ? (
+                  <p className="text-xs text-destructive">
+                    This national ID is already enrolled in your organization.{" "}
+                    <button
+                      type="button"
+                      className="underline font-medium"
+                      onClick={() => navigate(`/admin/farmer/${duplicateFarmerId}`)}
+                    >
+                      Open the existing record
+                    </button>
+                  </p>
+                ) : identity?.known ? (
+                  <p className="text-xs text-primary">
+                    Known person on the platform{identity.full_name ? ` — ${identity.full_name}` : ""}
+                    {identity.date_of_birth ? ` (born ${identity.date_of_birth})` : ""}. This record will be
+                    linked to them.
+                  </p>
+                ) : identity ? (
+                  <p className="text-xs text-muted-foreground">New farmer — a new identity will be created.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Required. Format {NATIONAL_ID_EXAMPLE}.
+                  </p>
+                )}
               </div>
             </div>
           </>

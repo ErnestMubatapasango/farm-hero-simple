@@ -16,6 +16,25 @@ export const AGE_MAX = 120;
 
 const isBlank = (v: string | null | undefined) => v == null || String(v).trim() === "";
 
+/** Zimbabwe national ID, e.g. 63-1234567A63. Must match the database constraint. */
+export const NATIONAL_ID_PATTERN = /^[0-9]{2}-[0-9]{6,7}[A-Z][0-9]{2}$/;
+export const NATIONAL_ID_EXAMPLE = "63-1234567A63";
+
+/** Uppercase + strip whitespace, mirroring public.normalize_national_id. */
+export function normalizeNationalId(value: string | null | undefined): string {
+  return String(value ?? "").replace(/\s/g, "").toUpperCase();
+}
+
+/** National ID is required and must match the Zimbabwe format. */
+export function validateNationalId(value: string): string | null {
+  const nid = normalizeNationalId(value);
+  if (nid === "") return "National ID is required.";
+  if (!NATIONAL_ID_PATTERN.test(nid)) {
+    return `Enter a valid national ID, e.g. ${NATIONAL_ID_EXAMPLE}.`;
+  }
+  return null;
+}
+
 /** Farm size is optional, but when supplied must be > 0 and <= 100000. */
 export function validateFarmSize(value: string): string | null {
   if (isBlank(value)) return null;
