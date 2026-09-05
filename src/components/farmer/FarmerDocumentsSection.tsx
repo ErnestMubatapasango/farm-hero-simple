@@ -99,6 +99,14 @@ export default function FarmerDocumentsSection({
       toast({ title: "File too large", description: "Max 10 MB.", variant: "destructive" });
       return;
     }
+    if (!ALLOWED_MIME.includes(file.type)) {
+      toast({
+        title: "Unsupported file type",
+        description: "Only PDF, PNG and JPEG files are allowed.",
+        variant: "destructive",
+      });
+      return;
+    }
     setUploading(true);
 
     // If offline (or farmer is a local-only draft not yet synced), queue upload
