@@ -156,11 +156,39 @@ export default function FarmerForm({ mode, initialData, farmerId, title, subtitl
   const dobError = validateDateOfBirth(form.date_of_birth);
   const farmSizeError = validateFarmSize(form.farm_size_hectares);
   const incomeError = validateAnnualIncome(form.annual_income);
+  const nationalIdError = validateNationalId(form.national_id);
   const yieldErrors = useMemo(() => validateYieldHistory(form.yieldHistory), [form.yieldHistory]);
   const hasYieldErrors = Object.keys(yieldErrors).length > 0;
 
+  const duplicateFarmerId =
+    identity?.in_my_org && identity.my_org_farmer_id && identity.my_org_farmer_id !== farmerId
+      ? identity.my_org_farmer_id
+      : null;
+
+  const lookupIdentity = async () => {
+    const nid = normalizeNationalId(form.national_id);
+    if (validateNationalId(nid)) {
+      setIdentity(null);
+      return;
+    }
+    setCheckingIdentity(true);
+    const { data, error } = await supabase.rpc("check_farmer_identity", { _national_id: nid });
+    setCheckingIdentity(false);
+    if (error) {
+      setIdentity(null);
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    setIdentity(row ?? null);
+  };
+
   const stepInvalid: Record<Step, boolean> = {
-    personal: !form.first_name || !form.last_name || Boolean(dobError),
+    personal:
+      !form.first_name ||
+      !form.last_name ||
+      Boolean(dobError) ||
+      Boolean(nationalIdError) ||
+      Boolean(duplicateFarmerId),
     farm: Boolean(farmSizeError),
     crops: !form.cropInfo.primaryCrop || hasYieldErrors,
     financial: Boolean(incomeError),
