@@ -6,15 +6,20 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { isOrgAdmin, PERMISSIONS } from "@/lib/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { GerminatingLogo } from "@/components/GerminatingLogo";
-import { ArrowLeft, Gauge, RefreshCw, Lightbulb, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Gauge, RefreshCw, Lightbulb, ShieldCheck, Banknote, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loadAndComputeScore } from "@/lib/credit-score-service";
 import {
   CONFIDENCE_KEY,
   CONFIDENCE_THRESHOLD,
+  LENDING_KEY,
   getConfidence,
+  getLending,
+  getNegativeFactors,
+  getPositiveFactors,
   type CreditScoreResult,
 } from "@/lib/credit-score";
+
 
 interface FarmerHead {
   id: string;
